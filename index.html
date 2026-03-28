@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shelley's Water Ripples - Enhanced</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=EB+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #faf8f0;
+            font-family: 'EB Garamond', serif;
+        }
+
+        #ui-container {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease-in-out;
+            z-index: 100;
+        }
+
+        #ui-container.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.4);
+            padding: 8px;
+            border-radius: 50px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(80, 160, 220, 0.3);
+        }
+
+        #whisper-input {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            background: rgba(250, 248, 240, 0.9);
+            color: #444;
+            outline: none;
+            width: 280px;
+            font-family: 'Caveat', cursive;
+            font-size: 18px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        #whisper-btn {
+            padding: 10px 25px;
+            border-radius: 25px;
+            border: none;
+            background: #50a0dc;
+            color: white;
+            cursor: pointer;
+            font-family: 'Caveat', cursive;
+            font-size: 18px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(80, 160, 220, 0.3);
+        }
+
+        #whisper-btn:hover {
+            background: #3a8bc7;
+            transform: translateY(-1px);
+        }
+
+        #whisper-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        #loading-text {
+            color: #555;
+            font-family: 'Caveat', cursive;
+            font-size: 18px;
+            background: rgba(250, 248, 240, 0.95);
+            padding: 6px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(80, 160, 220, 0.2);
+            display: none;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="input-group">
+            <input type="text" id="whisper-input" placeholder="Whisper to the water..." autocomplete="off">
+            <button id="whisper-btn">Whisper</button>
+        </div>
+        <div id="loading-text">The water is listening to your soul...</div>
+    </div>
+
+<script>
+const apiKey = ""; 
+
+let defaultPoem = `Hail to thee, blithe Spirit! Bird thou never wert, That from Heaven, or near it, Pourest thy full heart, In profuse strains of unpremeditated art. Higher still and higher, From the earth thou springest, Like a cloud of fire; The blue deep thou wingest, And singing still dost soar, and soaring ever singest.`;
+let shelleyPoems = defaultPoem;
+
+let charObjects = [];
+let totalChars = 0;
+let startTime = 0;
+let waitStartTime = 0;
+let dissipateStartTime = 0;
+let hasWhispered = false; 
+
+const FILL_DURATION = 5000;   
+const WAIT_DURATION = 8000;   
+const DISSIPATE_DURATION = 4500; 
+
+let appState = 0;
+let meltStartTime = 0;
+const MELT_DURATION = 1500;
+
+let fontSize = 16;
+let colSpacing = 20;
+let charSpacing = 14;
+let margin = 40;
+
+const bgColor = [250, 248, 240];
+const textColor = [80, 160, 220]; 
+
+let ripples = [];
+const WAVE_SPEED = 2.5;
+const WAVE_THICKNESS = 45;
+const WAVE_AMP = 18;
+
+let audioCtx;
+let bgm;
+let waterField;
+let fish;
+
+function calculateLayout() {
+    charObjects = [];
+    let currentX = margin;
+    let currentY = margin;
+    let cleanText = shelleyPoems.trim().replace(/\s+/g, ' ') + "   ";
+    let charIndex = 0;
+
+    while (currentX <= width - margin) {
+        let char = cleanText[charIndex % cleanText.length];
+        charObjects.push({
+            char: char,
+            tx: currentX,
+            ty: currentY,
+            currentX: currentX,
+            currentY: currentY,
+            opacity: 0,
+            noiseOff: random(1000),
+            vx: random(-0.8, 0.8),
+            vy: 0,
+            isBroken: false
+        });
+        
+        currentY += charSpacing;
+        if (currentY > height - margin) {
+            currentX += colSpacing;
+            currentY = margin;
+        }
+        charIndex++;
+    }
+    totalChars = charObjects.length;
+}
+
+async function fetchGeminiPoem(prompt) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+    const systemPrompt = "You are Percy Bysshe Shelley. Write a short, romantic, nature-inspired poem (4-6 lines) based on the user's whisper. Use elegant language. Return ONLY the poem text without quotes.";
+    
+    const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        return result.candidates?.[0]?.content?.parts?.[0]?.text || "The water remains silent...";
+    } catch (e) {
+        return "Silence is the only answer.";
+    }
+}
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    textFont("'EB Garamond', serif");
+    textSize(fontSize);
+    textAlign(CENTER, CENTER);
+    
+    waterField = new WaterCharacterLayer();
+    fish = new ProceduralFish();
+    
+    // 背景音乐初始化
+    bgm = new Audio('bgm.mp3');
+    bgm.loop = true;
+
+    calculateLayout();
+    initUIListeners();
+}
+
+function initUIListeners() {
+    const btn = document.getElementById('whisper-btn');
+    const input = document.getElementById('whisper-input');
+    const loading = document.getElementById('loading-text');
+
+    btn.addEventListener('click', async () => {
+        const val = input.value.trim();
+        if (!val) return;
+
+        btn.disabled = true;
+        loading.style.display = 'block';
+        
+        triggerRipple(width/2, height/2, 2.0);
+        playWaterDropSound();
+
+        const poem = await fetchGeminiPoem(val);
+        shelleyPoems = poem;
+        
+        hasWhispered = true;
+        appState = 2; 
+        calculateLayout();
+        startTime = millis();
+        waitStartTime = 0;
+        dissipateStartTime = 0;
+        
+        loading.style.display = 'none';
+        btn.disabled = false;
+        input.value = '';
+        document.getElementById('ui-container').classList.remove('visible');
+    });
+
+    input.addEventListener('mousedown', e => e.stopPropagation());
+    btn.addEventListener('mousedown', e => e.stopPropagation());
+}
+
+function draw() {
+    background(bgColor[0], bgColor[1], bgColor[2]);
+
+    if (appState >= 2) {
+        let now = millis();
+        let elapsed = now - startTime;
+        
+        let progressChars = hasWhispered 
+            ? floor(map(elapsed, 0, FILL_DURATION, 0, totalChars, true))
+            : totalChars;
+
+        if (hasWhispered && appState === 2 && elapsed > FILL_DURATION) {
+            if (waitStartTime === 0) waitStartTime = now;
+            if (now - waitStartTime > WAIT_DURATION) {
+                appState = 3;
+                dissipateStartTime = now;
+                // 令鱼儿也进入破碎状态
+                fish.isBroken = true;
+                fish.vx = random(-1, 1);
+                fish.vy = 0;
+            }
+        }
+
+        for (let i = ripples.length - 1; i >= 0; i--) {
+            ripples[i].radius += WAVE_SPEED;
+            ripples[i].life -= 0.012;
+            if (ripples[i].life <= 0) ripples.splice(i, 1);
+        }
+
+        waterField.update();
+        waterField.draw();
+
+        let allHidden = true; 
+        for (let i = 0; i < charObjects.length; i++) {
+            let obj = charObjects[i];
+            
+            if (i < progressChars && appState !== 3) {
+                obj.opacity = lerp(obj.opacity, 255, 0.05);
+            } else if (!hasWhispered) {
+                obj.opacity = 255;
+            }
+
+            if (appState === 3) {
+                let dElapsed = now - dissipateStartTime;
+                let breakThreshold = map(dElapsed, 0, DISSIPATE_DURATION * 0.6, 0, height);
+                if (obj.ty < breakThreshold) {
+                    obj.isBroken = true;
+                }
+
+                if (obj.isBroken) {
+                    obj.vy += 0.12; 
+                    obj.tx += obj.vx;
+                    obj.ty += obj.vy;
+                    obj.opacity = lerp(obj.opacity, 0, 0.04);
+                }
+            }
+
+            if (obj.opacity > 1) allHidden = false;
+
+            let dx = 0, dy = 0;
+            
+            for (let r of ripples) {
+                let d = dist(obj.tx, obj.ty, r.x, r.y);
+                let distToWave = d - r.radius;
+                if (abs(distToWave) < WAVE_THICKNESS) {
+                    let wave = sin(map(distToWave, -WAVE_THICKNESS, WAVE_THICKNESS, -PI, PI));
+                    let angle = atan2(obj.ty - r.y, obj.tx - r.x);
+                    let force = wave * WAVE_AMP * r.life;
+                    dx += cos(angle) * force;
+                    dy += sin(angle) * force;
+                }
+            }
+
+            if (fish.active && !obj.isBroken) {
+                let dFish = dist(obj.tx, obj.ty, fish.pos.x, fish.pos.y);
+                if (dFish < 90) {
+                    let force = map(dFish, 0, 90, 18, 0);
+                    let angle = atan2(obj.ty - fish.pos.y, obj.tx - fish.pos.x);
+                    dx += cos(angle) * force;
+                    dy += sin(angle) * force;
+                }
+            }
+
+            if (!obj.isBroken) {
+                dx += (noise(obj.noiseOff, frameCount * 0.01) - 0.5) * 3;
+                dy += (noise(obj.noiseOff + 500, frameCount * 0.01) - 0.5) * 3;
+            }
+
+            if (obj.opacity > 0 && obj.char !== ' ') {
+                fill(textColor[0], textColor[1], textColor[2], obj.opacity);
+                text(obj.char, obj.tx + dx, obj.ty + dy);
+            }
+        }
+
+        // 检查鱼是否也已经消失
+        if (appState === 3 && fish.alpha <= 2) {
+            // allHidden 已被字符状态更新
+        } else if (appState === 3) {
+            allHidden = false;
+        }
+
+        if (appState === 3 && allHidden) {
+            appState = 0;
+            hasWhispered = false;
+            shelleyPoems = defaultPoem; 
+            calculateLayout();
+            document.getElementById('ui-container').classList.remove('visible');
+            fish.reset();
+        }
+
+        fish.update();
+        fish.draw();
+
+        if (appState === 2 && (hasWhispered ? elapsed > FILL_DURATION * 0.8 : true)) {
+            document.getElementById('ui-container').classList.add('visible');
+        } else {
+            document.getElementById('ui-container').classList.remove('visible');
+        }
+    }
+
+    if (appState < 2) {
+        drawHeart();
+    }
+}
+
+function drawHeart() {
+    push();
+    translate(width/2, height/2);
+    let alpha = 255;
+    let s = 1.3;
+    let t = millis() * 0.002;
+
+    if (appState === 1) {
+        let p = (millis() - meltStartTime) / MELT_DURATION;
+        if (p >= 1) {
+            appState = 2;
+            startTime = millis();
+            waterField.active = true;
+            fish.spawn();
+        }
+        alpha = map(p, 0, 1, 255, 0);
+        s = 1.3 + p * 0.5;
+    } else {
+        s += sin(t * 5) * 0.06; 
+    }
+
+    noFill();
+    for (let i = 0; i < 3; i++) {
+        stroke(220, 60, 80, alpha * (0.4 + i*0.2));
+        strokeWeight(2.5 - i*0.5);
+        beginShape();
+        for (let a = 0; a < TWO_PI; a += 0.1) {
+            let x = 16 * pow(sin(a), 3);
+            let y = -(13 * cos(a) - 5 * cos(2*a) - 2 * cos(3*a) - cos(4*a));
+            let nx = noise(a, i, t) * 6;
+            let ny = noise(a + 10, i, t) * 6;
+            vertex((x * s) + nx, (y * s) + ny);
+        }
+        endShape(CLOSE);
+    }
+    pop();
+}
+
+function triggerRipple(x, y, life = 1.0) {
+    ripples.push({ x, y, radius: 0, life });
+}
+
+function mousePressed(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    if (appState === 0) {
+        appState = 1;
+        meltStartTime = millis();
+        initAudio();
+        // 播放背景音乐
+        if(bgm) bgm.play().catch(err => console.log("BGM play failed, need user gesture"));
+    }
+    if (appState >= 2) {
+        triggerRipple(mouseX, mouseY);
+        playWaterDropSound();
+    }
+}
+
+function mouseMoved() {
+    if (appState === 2 && frameCount % 6 === 0) {
+        if (dist(mouseX, mouseY, pmouseX, pmouseY) > 8) triggerRipple(mouseX, mouseY, 0.4);
+    }
+}
+
+class ProceduralFish {
+    constructor() {
+        this.reset();
+    }
+    reset() {
+        this.pos = createVector(0, 0);
+        this.angle = 0;
+        this.active = false;
+        this.alpha = 0;
+        this.t = 0;
+        this.isBroken = false;
+        this.vx = 0;
+        this.vy = 0;
+    }
+    spawn() {
+        this.active = true;
+        this.pos = createVector(random(width), random(height));
+        this.angle = random(TWO_PI);
+        this.alpha = 0;
+        this.isBroken = false;
+    }
+    update() {
+        if (!this.active) return;
+        
+        if (this.isBroken) {
+            // 破碎下落逻辑
+            this.vy += 0.12; 
+            this.pos.x += this.vx;
+            this.pos.y += this.vy;
+            this.alpha = lerp(this.alpha, 0, 0.04);
+            if (this.alpha < 1) this.active = false;
+            return;
+        }
+
+        this.t += 0.015; // 减慢时间流逝速度，让摆动更平缓
+        let center = createVector(width/2, height/2);
+        let distToCenter = p5.Vector.dist(this.pos, center);
+        let steer = p5.Vector.sub(center, this.pos);
+        steer.normalize();
+        let edgeThreshold = min(width, height) * 0.35;
+        let steerStrength = map(distToCenter, edgeThreshold, edgeThreshold + 200, 0, 0.07, true);
+        let noiseAngle = (noise(this.t) - 0.5) * 0.4; // 减小噪声强度
+        this.angle += noiseAngle;
+        let targetAngle = steer.heading();
+        let angleDiff = targetAngle - this.angle;
+        while (angleDiff > PI) angleDiff -= TWO_PI;
+        while (angleDiff < -PI) angleDiff += TWO_PI;
+        this.angle += angleDiff * steerStrength;
+        
+        // 减慢移动速度系数从 2.3 降到 1.5
+        this.pos.x += cos(this.angle) * 1.5;
+        this.pos.y += sin(this.angle) * 1.5;
+        this.alpha = lerp(this.alpha, 160, 0.01);
+    }
+    draw() {
+        if (!this.active) return;
+        push();
+        translate(this.pos.x, this.pos.y);
+        rotate(this.angle);
+        let wiggle = sin(this.t * 8) * 0.2; // 减慢尾巴摆动速度
+        fill(100, 180, 240, this.alpha);
+        noStroke();
+        ellipse(0, 0, 32, 14);
+        push();
+        translate(-16, 0);
+        rotate(wiggle);
+        triangle(0, 0, -10, -8, -10, 8);
+        pop();
+        fill(255, this.alpha);
+        circle(10, -3, 3);
+        pop();
+    }
+}
+
+class WaterCharacterLayer {
+    constructor() {
+        this.chars = ["~", "·", "°", "≈"];
+        this.active = false;
+        this.zOff = 0;
+    }
+    update() { if (this.active) this.zOff += 0.006; }
+    draw() {
+        if (!this.active) return;
+        textSize(10);
+        textAlign(LEFT, TOP);
+        for (let x = 0; x < width; x += 45) {
+            for (let y = 0; y < height; y += 45) {
+                let n = noise(x * 0.005, y * 0.005, this.zOff);
+                if (n > 0.48) {
+                    let c = this.chars[floor(n * this.chars.length) % this.chars.length];
+                    fill(80, 160, 220, map(n, 0.48, 1, 0, 30));
+                    text(c, x, y);
+                }
+            }
+        }
+        textSize(fontSize);
+        textAlign(CENTER, CENTER);
+    }
+}
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playWaterDropSound() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(250 + random(350), audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(15, audioCtx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    calculateLayout();
+}
+</script>
+</body>
+</html>
