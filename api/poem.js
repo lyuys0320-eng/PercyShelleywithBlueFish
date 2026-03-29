@@ -24,39 +24,41 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: '缺少灵感提示词 (prompt)' });
     }
 
-    // 2. 从 Vercel 的环境变量中安全地读取 DeepSeek API Key
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    // 2. 从 Vercel 的环境变量中安全地读取 Gemini API Key
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        return res.status(500).json({ error: '服务器未配置 DEEPSEEK_API_KEY' });
+        return res.status(500).json({ error: '服务器未配置 GEMINI_API_KEY' });
     }
 
     // AI 的系统提示词 (人设)
     const systemPrompt = "You are a poet channeling the spirit of Percy Bysshe Shelley. Write a deeply romantic, nature-focused, and slightly melancholic poem inspired by the user's prompt. CRITICAL REQUIREMENT: Your poem MUST contain AT LEAST 150 words,and do not mention the water. Expand on the imagery extensively. Return ONLY the poem text, without any quotes or explanations.";
 
     try {
-        // 3. 向 DeepSeek 官方发起请求
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
+        // 3. 向 Google Gemini 官方发起请求
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}` // Key 被安全地保护在后端
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'deepseek-chat', // 使用 DeepSeek 的对话模型
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: prompt }
-                ],
-                temperature: 0.7
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
             })
         });
 
         if (!response.ok) {
-            throw new Error(`DeepSeek 接口报错: ${response.status}`);
+            throw new Error(`Gemini 接口报错: ${response.status}`);
         }
 
         const data = await response.json();
-        const poem = data.choices[0].message.content;
+        
+        // 解析 Gemini 的返回数据结构
+        const poem = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!poem) {
+            throw new Error('未能从 Gemini 返回的数据中解析出诗句');
+        }
 
         // 4. 将生成的诗句返回给你的前端网页
         res.status(200).json({ poem });
