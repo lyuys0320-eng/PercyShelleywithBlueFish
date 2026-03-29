@@ -117,10 +117,8 @@
 <script>
 /**
  * 雪莱诗句 - 沉浸式水波互动（生命轮回·终极完全体）
- * 详细教学注释版
+ * 包含服务端隐藏 API Key 的完全安全版
  */
-
-const apiKey = ""; // 在这里填入你的 Gemini API Key
 
 let fishImg;
 
@@ -230,22 +228,25 @@ function calculateLayout() {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // ==========================================
-// 函数：调用 Gemini AI 接口写诗
+// 🛠️核心修改点：调用你自己的 Vercel 后端接口，移除明文的 API Key
 // ==========================================
-async function fetchGeminiPoem(prompt, retries = 5) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-  // 🛠️【修改点：AI人设与限制】可以在这里修改Prompt，让它写中文诗，或者改变诗的风格
-  const systemPrompt = "You are a poet channeling the spirit of Percy Bysshe Shelley. Write a deeply romantic, nature-focused, and slightly melancholic poem inspired by the user's prompt. CRITICAL REQUIREMENT: Your poem MUST contain AT LEAST 150 words,and do not mention the water. Expand on the imagery extensively. Return ONLY the poem text, without any quotes or explanations.";
-  const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
+async function fetchServerlessPoem(prompt, retries = 5) {
+  // ⚠️【极度重要】将这里的网址替换成你部署到 Vercel 后系统给你的实际域名
+  // 例如：https://my-poem-project.vercel.app/api/poem
+  const url = `https://percy-shelleywith-blue-fish-446jdil83-lyuys.vercel.app//api/poem`; 
 
   isFetching = true;
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const response = await fetch(url, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ prompt: prompt }) 
+      });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const result = await response.json();
       isFetching = false;
-      return result.candidates?.[0]?.content?.parts?.[0]?.text || "The water remains silent...";
+      return result.poem || "The water remains silent...";
     } catch (error) {
       if (i === retries - 1) {
         isFetching = false;
@@ -273,7 +274,7 @@ function setupUI() {
         ripples.push({ x: width / 2, y: height / 2, radius: 0, life: 3.0, isTrail: false });
         playRealisticWaterDrop();
 
-        const newPoem = await fetchGeminiPoem(prompt);
+        const newPoem = await fetchServerlessPoem(prompt); // 👈 替换为调用服务端接口
         
         shelleyPoems = newPoem.replace(/\n/g, ' '); 
         isNewPoem = true;
@@ -497,13 +498,13 @@ function drawHeart() {
       startTime = millis(); 
       stayStartTime = 0; 
 
-      // 👇 只需在这里新增以下两行代码
-      pop();    // 释放原点坐标的修改
-      return;   // 直接退出函数，避免画出闪烁的最后一帧
+      // 避免闪烁，提前退出渲染
+      pop();
+      return;
   }
   
   let heartAlpha = 255;
-  let targetScale = 0.1; // 爱心基础大小
+  let targetScale = 1.9; // 爱心基础大小
   let time = millis() * 0.002;
 
   // 状态0：跳动与苏醒
