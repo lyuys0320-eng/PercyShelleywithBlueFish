@@ -233,7 +233,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function fetchServerlessPoem(prompt, retries = 5) {
   // ⚠️【极度重要】将这里的网址替换成你部署到 Vercel 后系统给你的实际域名
   // 例如：https://my-poem-project.vercel.app/api/poem
-  const url = `https://percy-shelleywith-blue-fish-446jdil83-lyuys.vercel.app//api/poem`; 
+  const url = `https://percy-shelleywith-blue-fish-o2wcdmy4a-lyuys.vercel.app/api/poem`; 
 
   isFetching = true;
   for (let i = 0; i < retries; i++) {
