@@ -115,460 +115,616 @@
     </div>
 
 <script>
-const apiKey = ""; 
+/**
+ * 雪莱诗句 - 沉浸式水波互动（生命轮回·终极完全体）
+ * 详细教学注释版
+ */
 
-let defaultPoem = `Hail to thee, blithe Spirit! Bird thou never wert, That from Heaven, or near it, Pourest thy full heart, In profuse strains of unpremeditated art. Higher still and higher, From the earth thou springest, Like a cloud of fire; The blue deep thou wingest, And singing still dost soar, and soaring ever singest.`;
-let shelleyPoems = defaultPoem;
+const apiKey = ""; // 在这里填入你的 Gemini API Key
 
-let charObjects = [];
-let totalChars = 0;
-let startTime = 0;
-let waitStartTime = 0;
-let dissipateStartTime = 0;
-let hasWhispered = false; 
+let fishImg;
 
-const FILL_DURATION = 5000;   
-const WAIT_DURATION = 8000;   
-const DISSIPATE_DURATION = 4500; 
+// 存储原诗，用于每次轮回结束后恢复原状
+const ORIGINAL_POEM = `Hail to thee, blithe Spirit! Bird thou never wert... That from Heaven, or near it, Pourest thy full heart, In profuse strains of unpremeditated art. Higher still and higher, From the earth thou springest, Like a cloud of fire; The blue deep thou wingest, And singing still dost soar, and soaring ever singest. In the golden lightning, Of the sunken sun, O’er which clouds are bright’ning, Thou dost float and run, Like an unbodied joy whose race is just begun. The pale purple even, Melts around thy flight; Like a star of Heaven, In the broad daylight, Thou art unseen, but yet I hear thy shrill delight; Keen as are the arrows, Of that silver sphere, Whose intense lamp narrows, In the white dawn clear, Until we hardly see--we feel that it is there. All the earth and air, With thy voice is loud. As, when night is bare. From one lonely cloud, The moon rains out her beams, and heaven is overflowed. What thou art we know not; What is most like thee? From rainbow clouds there flow not, Drops so bright to see, As from thy presence showers a rain of melody. Like a poet hidden, In the light of thought, Singing hymns unbidden, Till the world is wrought, To sympathy with hopes and fears it heeded not; Like a high-born maiden, In a palace tower, Soothing her love-laden, Soul in secret hour, With music sweet as love, which overflows her bower; Like a glow-worm golden, In a dell of dew, Scattering unbeholden, Its aerial hue. Like a rose embowered, In its own green leaves, By warm winds deflowered, Till the scent it gives, Makes faint with too much sweet these heavy-winged thieves. Sound of vernal showers, On the twinkling grass, Rain-awakened flowers, All that ever was, Joyous, and clear, and fresh, thy music doth surpass. Teach us, sprite or bird, What sweet thoughts are thine, I have never heard, Praise of love or wine, That panted forth a flood of rapture so divine. Chorus hymeneal, Or triumphal chaunt, Matched with thine, would be all, But an empty vaunt, A thing wherein we feel there is some hidden want. What objects are the fountains, Of thy happy strain? What fields, or waves, or mountains? What shapes of sky or plain? What love of thine own kind? what ignorance of pain? With thy clear keen joyance, Languor cannot be, Shadow of annoyance, Never came near thee. Thou lovest, but ne’er knew love’s sad satiety. Waking or asleep, Thou of death must deem, Things more true and deep, Than we mortals dream, Or how could thy notes flow in such a crystal stream? We look before and after, And pine for what is not, Our sincerest laughter, With some pain is fraught; Our sweetest songs are those that tell of saddest thought. Yet if we could scorn, Hate, and pride, and fear; If we were things born, Not to shed a tear, I know not how thy joy we ever should come near. Better than all measures, Of delightful sound, Better than all treasures, That in books are found, Thy skill to poet were, thou scorner of the ground! Teach me half the gladness, That thy brain must know, Such harmonious madness, From my lips would flow, The world should listen then, as I am listening now!.`;
+let shelleyPoems = ORIGINAL_POEM;
 
-let appState = 0;
+// 用于存储屏幕上每一个字符对象的数组
+let charObjects = []; 
+let totalChars = 0;   
+
+// ==========================================
+// 🛠️【修改点：时间与动画节奏控制】 (单位：毫秒 1000ms = 1秒)
+// ==========================================
+let startTime = 0;        
+const FILL_DURATION = 10000;  // 诗句如潮水般填满屏幕需要的时间 (8秒)
+const MELT_DURATION = 2000;  // 开头爱心融化、涣散需要的时间 (2秒)
+const DISPERSE_DELAY = 8000; // 诗句完全填满后，在屏幕上停留展示的时间 (8秒)
+
+// 状态控制变量 (0=爱心, 1=爱心融化, 2=水波互动, 3=破碎消散)
+let appState = 0; 
 let meltStartTime = 0;
-const MELT_DURATION = 1500;
+let stayStartTime = 0; 
+let isNewPoem = false; // 判断当前展示的是否为用户AI生成的新诗
+let heartRecoveryStartTime = 0; 
+let isFetching = false; 
 
-let fontSize = 16;
-let colSpacing = 20;
-let charSpacing = 14;
-let margin = 40;
+// ==========================================
+// 🛠️【修改点：视觉排版与颜色】
+// ==========================================
+let fontSize;           // 字体大小 (动态计算)
+let colSpacing;         // 列间距 (横向字间距) (动态计算)
+let charSpacing;        // 行间距 (纵向字间距) (动态计算)
+let margin = 80;             // 屏幕边缘留白距离
+let bgColor = [250, 248, 240];  // 屏幕背景色 (RGB：米白色)
+let textColor = [80, 160, 220]; // 诗句和水波字符的颜色 (RGB：水蓝色)
+let uiTextColor = '#555555';    // 输入框文字的颜色 (深灰色)
+let lastCanvasWidth = 0; 
 
-const bgColor = [250, 248, 240];
-const textColor = [80, 160, 220]; 
+// ==========================================
+// 🛠️【修改点：水波物理引擎控制】
+// ==========================================
+let ripples = [];            // 存储当前屏幕上的所有水波涟漪
+const WAVE_SPEED = 3;        // 水波向外扩散的速度 (越大波纹跑得越快)
+const WAVE_THICKNESS = 45;   // 水波的厚度/影响范围 (越大被推开的字越多)
+const WAVE_AMP = 15;         // 水波的起伏强度 (越大字被推开的距离越远)
 
-let ripples = [];
-const WAVE_SPEED = 2.5;
-const WAVE_THICKNESS = 45;
-const WAVE_AMP = 18;
+// 音频与背景元素变量
+let audioCtx, flowGainNode, flowFilterNode, waterField, fish;
 
-let audioCtx;
-let bgm;
-let waterField;
-let fish;
+let myBGM = new Audio('bgm.mp3');
+myBGM.loop = true;
+myBGM.volume = 0.4; // 🛠️【修改点】BGM音量 (0.0 到 1.0)
+myBGM.onerror = () => { console.warn("未检测到 bgm 音乐文件，将静音运行"); };
 
-function calculateLayout() {
-    charObjects = [];
-    let currentX = margin;
-    let currentY = margin;
-    let cleanText = shelleyPoems.trim().replace(/\s+/g, ' ') + "   ";
-    let charIndex = 0;
-
-    while (currentX <= width - margin) {
-        let char = cleanText[charIndex % cleanText.length];
-        charObjects.push({
-            char: char,
-            tx: currentX,
-            ty: currentY,
-            currentX: currentX,
-            currentY: currentY,
-            opacity: 0,
-            noiseOff: random(1000),
-            vx: random(-0.8, 0.8),
-            vy: 0,
-            isBroken: false
-        });
-        
-        currentY += charSpacing;
-        if (currentY > height - margin) {
-            currentX += colSpacing;
-            currentY = margin;
-        }
-        charIndex++;
-    }
-    totalChars = charObjects.length;
-}
-
-async function fetchGeminiPoem(prompt) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-    const systemPrompt = "You are Percy Bysshe Shelley. Write a short, romantic, nature-inspired poem (4-6 lines) based on the user's whisper. Use elegant language. Return ONLY the poem text without quotes.";
-    
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] }
-    };
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        return result.candidates?.[0]?.content?.parts?.[0]?.text || "The water remains silent...";
-    } catch (e) {
-        return "Silence is the only answer.";
-    }
-}
-
-function setup() {
-    createCanvas(windowWidth, windowHeight);
-    textFont("'EB Garamond', serif");
+// ==========================================
+// 新增函数：根据屏幕自适应计算排版缩放指标
+// ==========================================
+function updateLayoutMetrics() {
+    // 动态字体大小：取屏幕宽高中较小值的一定比例，并将其限制在合理的范围内 (12~26)
+    fontSize = constrain(min(windowWidth, windowHeight) * 0.025, 12, 26);
+    // 间距也跟随字体大小等比缩放
+    colSpacing = fontSize * 1.35;
+    charSpacing = fontSize * 1.0;
+    // 更新绘制环境的字体大小
     textSize(fontSize);
-    textAlign(CENTER, CENTER);
-    
-    waterField = new WaterCharacterLayer();
-    fish = new ProceduralFish();
-    
-    // 背景音乐初始化
-    bgm = new Audio('bgm.mp3');
-    bgm.loop = true;
-
-    calculateLayout();
-    initUIListeners();
 }
 
-function initUIListeners() {
+// ==========================================
+// 函数：计算文字排版与碎裂物理属性
+// ==========================================
+function calculateLayout() {
+  charObjects = []; totalChars = 0;
+  let currentX = margin; let currentY = margin;
+  let cleanText = shelleyPoems.trim() + "   "; // 添加空格分隔
+  
+  let i = 0; // 用于持续取字的索引
+  
+  // 核心修改点：无限循环，直到 X 坐标超出屏幕右侧边界
+  while (currentX <= width - margin) {
+    // 利用取模运算 % 无限重复获取诗句内容
+    let char = cleanText[i % cleanText.length];
+    
+    charObjects.push({
+      char: char, tx: currentX, ty: currentY,
+      currentX: currentX, currentY: currentY, opacity: 0,
+      vx: random(-6, 6),        // 碎裂时：水平方向飞散的速度
+      vy: random(20.0, 40.0),    // 碎裂时：垂直向下坠落的速度 (调大数字掉得更快)
+      rotation: 0, 
+      rv: random(-2, 2),    // 碎裂时：旋转翻滚的速度
+      disperseDelay: map(currentY, 0, height, 0, 1000) // 延迟，让上面的字先碎，下面的字后碎
+    });
+    
+    totalChars++; 
+    currentY += charSpacing; // 纵向换字
+    
+    // 如果当前列到了底部边界，就换列
+    if (currentY > height - margin) { 
+        currentX += colSpacing; 
+        currentY = margin; 
+    }
+    i++;
+  }
+}
+
+// 延迟辅助函数
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// ==========================================
+// 函数：调用 Gemini AI 接口写诗
+// ==========================================
+async function fetchGeminiPoem(prompt, retries = 5) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  // 🛠️【修改点：AI人设与限制】可以在这里修改Prompt，让它写中文诗，或者改变诗的风格
+  const systemPrompt = "You are a poet channeling the spirit of Percy Bysshe Shelley. Write a deeply romantic, nature-focused, and slightly melancholic poem inspired by the user's prompt. CRITICAL REQUIREMENT: Your poem MUST contain AT LEAST 150 words,and do not mention the water. Expand on the imagery extensively. Return ONLY the poem text, without any quotes or explanations.";
+  const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemPrompt }] } };
+
+  isFetching = true;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await response.json();
+      isFetching = false;
+      return result.candidates?.[0]?.content?.parts?.[0]?.text || "The water remains silent...";
+    } catch (error) {
+      if (i === retries - 1) {
+        isFetching = false;
+        return "The water's magic faded, please try whispering again later...";
+      }
+      await delay(Math.pow(2, i) * 1000); 
+    }
+  }
+}
+
+// UI 构建与交互事件绑定 (HTML/CSS注入)
+function setupUI() {
     const btn = document.getElementById('whisper-btn');
     const input = document.getElementById('whisper-input');
-    const loading = document.getElementById('loading-text');
+    const loadingText = document.getElementById('loading-text');
 
     btn.addEventListener('click', async () => {
-        const val = input.value.trim();
-        if (!val) return;
+        const prompt = input.value.trim();
+        if (!prompt) return;
 
         btn.disabled = true;
-        loading.style.display = 'block';
+        loadingText.style.display = 'block';
         
-        triggerRipple(width/2, height/2, 2.0);
-        playWaterDropSound();
+        // 激起一圈大涟漪
+        ripples.push({ x: width / 2, y: height / 2, radius: 0, life: 3.0, isTrail: false });
+        playRealisticWaterDrop();
 
-        const poem = await fetchGeminiPoem(val);
-        shelleyPoems = poem;
+        const newPoem = await fetchGeminiPoem(prompt);
         
-        hasWhispered = true;
-        appState = 2; 
+        shelleyPoems = newPoem.replace(/\n/g, ' '); 
+        isNewPoem = true;
         calculateLayout();
-        startTime = millis();
-        waitStartTime = 0;
-        dissipateStartTime = 0;
         
-        loading.style.display = 'none';
-        btn.disabled = false;
-        input.value = '';
+        // 隐藏输入框
         document.getElementById('ui-container').classList.remove('visible');
+
+        startTime = millis(); 
+        stayStartTime = 0; 
+        appState = 2; // 确保状态为水波态
+        
+        // 连续水滴效果
+        for(let i=0; i<6; i++) {
+           setTimeout(() => {
+             ripples.push({ x: random(width), y: random(height), radius: 0, life: 1.5, isTrail: false });
+             playRealisticWaterDrop(0.1 + random(0.2));
+           }, i * 300);
+        }
+
+        btn.disabled = false;
+        loadingText.style.display = 'none';
+        input.value = '';
     });
 
+    // 阻止点击输入框时触发水波
     input.addEventListener('mousedown', e => e.stopPropagation());
+    input.addEventListener('touchstart', e => e.stopPropagation());
     btn.addEventListener('mousedown', e => e.stopPropagation());
+    btn.addEventListener('touchstart', e => e.stopPropagation());
+
+    // 监听回车键发送
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !btn.disabled) {
+            btn.click();
+        }
+    });
 }
 
+// ==========================================
+// P5.js 初始化函数：只在程序启动时运行一次
+// ==========================================
+function setup() {
+  let canvas = createCanvas(windowWidth, windowHeight);
+  lastCanvasWidth = windowWidth;
+
+  // 阻止手机端浏览器默认的下拉刷新和滑动页面行为
+  canvas.elt.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+  }, { passive: false });
+
+  // 加载英文字体
+  let fontLink = document.createElement('link');
+  fontLink.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@500&display=swap';
+  fontLink.rel = 'stylesheet';
+  document.head.appendChild(fontLink);
+  textFont("'Caveat', cursive"); 
+  textAlign(CENTER, CENTER);
+  noStroke();
+
+  waterField = new WaterCharacterLayer(); // 背景底层的飘动字符
+  fish = new ImageFish(); // 游动的鱼
+
+  // 核心：初始化自适应指标，然后再计算文字布局
+  updateLayoutMetrics();
+  calculateLayout();
+  setupUI();
+}
+
+// ==========================================
+// P5.js 绘制函数：每秒运行 60 次 (核心动画引擎)
+// ==========================================
 function draw() {
-    background(bgColor[0], bgColor[1], bgColor[2]);
+  background(bgColor[0], bgColor[1], bgColor[2]); // 清空上一帧，画上背景色
+  let now = millis(); // 获取程序运行至今的毫秒数
 
-    if (appState >= 2) {
-        let now = millis();
-        let elapsed = now - startTime;
+  // ===== 当程序不在初始爱心状态时 (即水波诗句状态) =====
+  if (appState > 0) {
+    waterField.update(); waterField.draw(); // 画出底层的"~"字符水波
+    let elapsed = now - startTime;
+    
+    // 渐进式展示文字：计算当前应该显示到第几个字了
+    let charsToDisplay = (elapsed < FILL_DURATION) ? floor(map(elapsed, 0, FILL_DURATION, 0, totalChars)) : totalChars;
+
+    // 当字填满屏幕后，开始记录“静止展示时间”
+    if (appState === 2 && elapsed >= FILL_DURATION && stayStartTime === 0) {
+      stayStartTime = now;
+      if (fish.alphaState === 0) fish.swimIn(); // 鱼游出来
+    }
+    
+    // 如果停留时间超过了 DISPERSE_DELAY (8秒)，触发状态3：文字碎裂
+    if (appState === 2 && isNewPoem && stayStartTime > 0 && now - stayStartTime > DISPERSE_DELAY) {
+      appState = 3;
+      document.getElementById('ui-container').classList.remove('visible'); // 隐藏输入框
+    }
+
+  // 判断鼠标是否在移动，产生尾迹涟漪（移除必须按压的限制）
+    let mouseSpeed = dist(mouseX, mouseY, pmouseX, pmouseY);
+    if (appState === 2 && mouseSpeed > 2) {
+      if (frameCount % 3 === 0) {
+        ripples.push({ x: mouseX, y: mouseY, radius: 0, life: 0.8, isTrail: true });
+      }
+    }
+
+    // 根据鼠标滑动速度，调节水流声音(布朗噪声)的大小和频率
+    if (flowGainNode && flowFilterNode) {
+      let targetGain = (appState === 2 && mouseSpeed > 1) ? min(map(mouseSpeed, 0, 50, 0.0, 0.35), 0.35) : 0;
+      let targetFreq = map(mouseSpeed, 0, 50, 150, 1000);
+      flowGainNode.gain.value = lerp(flowGainNode.gain.value, targetGain, 0.1);
+      flowFilterNode.frequency.value = lerp(flowFilterNode.frequency.value, targetFreq, 0.15);
+    }
+
+    // 更新每一个水波纹的半径，并减去生命值(让它渐渐消失)
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      ripples[i].radius += WAVE_SPEED; 
+      ripples[i].life -= 0.015;
+      if (ripples[i].life <= 0) ripples.splice(i, 1);
+    }
+
+    let stillShowing = false; // 用于判断屏幕上是否还有没掉出画面的字
+
+    // 遍历所有的字符，计算它们的位置并画出来
+    for (let i = 0; i < charObjects.length; i++) {
+      let c = charObjects[i];
+      if (i < charsToDisplay) {
+        // [状态2]：水波互动
+        if (appState === 2) {
+          c.opacity = lerp(c.opacity, 255, 0.05); // 字逐渐浮现
+          let dx = 0, dy = 0; // 受到水波影响产生的坐标偏移量
+          
+          for (let r of ripples) {
+            let d = dist(c.tx, c.ty, r.x, r.y);
+            let distToWave = d - r.radius;
+            let thick = r.isTrail ? WAVE_THICKNESS * 0.6 : WAVE_THICKNESS;
+            
+            // 核心物理：如果字符处于水波厚度的波及范围内，利用正弦波将其推开
+            if (abs(distToWave) < thick) {
+              let normalized = distToWave / thick; 
+              let waveProfile = sin(normalized * PI) * (1 - abs(normalized)); 
+              let currentAmp = (r.isTrail ? WAVE_AMP * 0.5 : WAVE_AMP) * r.life * waveProfile;
+              let angle = atan2(c.ty - r.y, c.tx - r.x);
+              dx += cos(angle) * currentAmp;
+              dy += sin(angle) * currentAmp;
+            }
+          }
+          
+          // 受到鱼游过的影响
+          let df = dist(c.tx, c.ty, fish.posHead.x, fish.posHead.y);
+          if (df < 60) {
+            let force = map(df, 0, 60, 8, 0); // 距离鱼越近，推力越大
+            let angle = atan2(c.ty - fish.posHead.y, c.tx - fish.posHead.x);
+            dx += cos(angle) * force; dy += sin(angle) * force;
+          }
+          c.currentX = c.tx + dx; c.currentY = c.ty + dy;
+          
+        } 
+        // [状态3]：破碎消散
+        else if (appState === 3) {
+          let disperseElapsed = now - (stayStartTime + DISPERSE_DELAY);
+          if (disperseElapsed > c.disperseDelay) { // 到达了该字的破碎时间
+            c.currentX += c.vx; // 加上水平速度
+            c.currentY += c.vy; // 加上下落速度
+            c.rotation += c.rv; // 加上旋转
+            c.opacity -= 8;     // 减去透明度
+          }
+        }
         
-        let progressChars = hasWhispered 
-            ? floor(map(elapsed, 0, FILL_DURATION, 0, totalChars, true))
-            : totalChars;
-
-        if (hasWhispered && appState === 2 && elapsed > FILL_DURATION) {
-            if (waitStartTime === 0) waitStartTime = now;
-            if (now - waitStartTime > WAIT_DURATION) {
-                appState = 3;
-                dissipateStartTime = now;
-                // 令鱼儿也进入破碎状态
-                fish.isBroken = true;
-                fish.vx = random(-1, 1);
-                fish.vy = 0;
-            }
+        // 只要字还是可见的，就画出来
+        if (c.opacity > 0) {
+          stillShowing = true;
+          push();
+          translate(c.currentX, c.currentY);
+          rotate(c.rotation || 0);
+          fill(textColor[0], textColor[1], textColor[2], c.opacity);
+          text(c.char, 0, 0);
+          pop();
         }
-
-        for (let i = ripples.length - 1; i >= 0; i--) {
-            ripples[i].radius += WAVE_SPEED;
-            ripples[i].life -= 0.012;
-            if (ripples[i].life <= 0) ripples.splice(i, 1);
-        }
-
-        waterField.update();
-        waterField.draw();
-
-        let allHidden = true; 
-        for (let i = 0; i < charObjects.length; i++) {
-            let obj = charObjects[i];
-            
-            if (i < progressChars && appState !== 3) {
-                obj.opacity = lerp(obj.opacity, 255, 0.05);
-            } else if (!hasWhispered) {
-                obj.opacity = 255;
-            }
-
-            if (appState === 3) {
-                let dElapsed = now - dissipateStartTime;
-                let breakThreshold = map(dElapsed, 0, DISSIPATE_DURATION * 0.6, 0, height);
-                if (obj.ty < breakThreshold) {
-                    obj.isBroken = true;
-                }
-
-                if (obj.isBroken) {
-                    obj.vy += 0.12; 
-                    obj.tx += obj.vx;
-                    obj.ty += obj.vy;
-                    obj.opacity = lerp(obj.opacity, 0, 0.04);
-                }
-            }
-
-            if (obj.opacity > 1) allHidden = false;
-
-            let dx = 0, dy = 0;
-            
-            for (let r of ripples) {
-                let d = dist(obj.tx, obj.ty, r.x, r.y);
-                let distToWave = d - r.radius;
-                if (abs(distToWave) < WAVE_THICKNESS) {
-                    let wave = sin(map(distToWave, -WAVE_THICKNESS, WAVE_THICKNESS, -PI, PI));
-                    let angle = atan2(obj.ty - r.y, obj.tx - r.x);
-                    let force = wave * WAVE_AMP * r.life;
-                    dx += cos(angle) * force;
-                    dy += sin(angle) * force;
-                }
-            }
-
-            if (fish.active && !obj.isBroken) {
-                let dFish = dist(obj.tx, obj.ty, fish.pos.x, fish.pos.y);
-                if (dFish < 90) {
-                    let force = map(dFish, 0, 90, 18, 0);
-                    let angle = atan2(obj.ty - fish.pos.y, obj.tx - fish.pos.x);
-                    dx += cos(angle) * force;
-                    dy += sin(angle) * force;
-                }
-            }
-
-            if (!obj.isBroken) {
-                dx += (noise(obj.noiseOff, frameCount * 0.01) - 0.5) * 3;
-                dy += (noise(obj.noiseOff + 500, frameCount * 0.01) - 0.5) * 3;
-            }
-
-            if (obj.opacity > 0 && obj.char !== ' ') {
-                fill(textColor[0], textColor[1], textColor[2], obj.opacity);
-                text(obj.char, obj.tx + dx, obj.ty + dy);
-            }
-        }
-
-        // 检查鱼是否也已经消失
-        if (appState === 3 && fish.alpha <= 2) {
-            // allHidden 已被字符状态更新
-        } else if (appState === 3) {
-            allHidden = false;
-        }
-
-        if (appState === 3 && allHidden) {
-            appState = 0;
-            hasWhispered = false;
-            shelleyPoems = defaultPoem; 
-            calculateLayout();
-            document.getElementById('ui-container').classList.remove('visible');
-            fish.reset();
-        }
-
-        fish.update();
-        fish.draw();
-
-        if (appState === 2 && (hasWhispered ? elapsed > FILL_DURATION * 0.8 : true)) {
-            document.getElementById('ui-container').classList.add('visible');
-        } else {
-            document.getElementById('ui-container').classList.remove('visible');
-        }
+      }
     }
 
-    if (appState < 2) {
-        drawHeart();
+    // 当状态为碎裂，并且所有字都已经消失时，重置程序回状态0
+    if (appState === 3 && !stillShowing) {
+      appState = 0;
+      isNewPoem = false; 
+      stayStartTime = 0;
+      shelleyPoems = ORIGINAL_POEM; 
+      heartRecoveryStartTime = millis(); 
+      calculateLayout(); 
     }
+
+    // 若当前为消散状态，则鱼也会同步变透明直到消散
+    if (appState === 3) {
+      fish.opacity -= 4;
+    }
+
+    fish.update(); fish.draw(); // 画鱼
+
+    // 如果字填满了，且还不到碎裂时间，显示底部的输入框
+    if (appState === 2 && elapsed >= FILL_DURATION && stayStartTime > 0 && now - stayStartTime < 1000 && !isFetching) {
+      document.getElementById('ui-container').classList.add('visible');
+    }
+  }
+
+  // ===== 初始爱心状态 =====
+  if (appState === 0 || appState === 1) {
+    drawHeart();
+  }
 }
 
+// ==========================================
+// 函数：绘制粗糙手绘感爱心
+// ==========================================
 function drawHeart() {
-    push();
-    translate(width/2, height/2);
-    let alpha = 255;
-    let s = 1.3;
-    let t = millis() * 0.002;
+  push();
+  translate(width / 2, height / 2); // 将坐标系原点移到屏幕中心
+  let meltProgress = (appState === 1) ? (millis() - meltStartTime) / MELT_DURATION : 0;
+  
+  // 融化完成，切换到诗句水波状态
+  if (meltProgress >= 1) { 
+      appState = 2; 
+      startTime = millis(); 
+      stayStartTime = 0; 
 
-    if (appState === 1) {
-        let p = (millis() - meltStartTime) / MELT_DURATION;
-        if (p >= 1) {
-            appState = 2;
-            startTime = millis();
-            waterField.active = true;
-            fish.spawn();
-        }
-        alpha = map(p, 0, 1, 255, 0);
-        s = 1.3 + p * 0.5;
-    } else {
-        s += sin(t * 5) * 0.06; 
-    }
+      // 👇 只需在这里新增以下两行代码
+      pop();    // 释放原点坐标的修改
+      return;   // 直接退出函数，避免画出闪烁的最后一帧
+  }
+  
+  let heartAlpha = 255;
+  let targetScale = 0.1; // 爱心基础大小
+  let time = millis() * 0.002;
 
-    noFill();
-    for (let i = 0; i < 3; i++) {
-        stroke(220, 60, 80, alpha * (0.4 + i*0.2));
-        strokeWeight(2.5 - i*0.5);
-        beginShape();
-        for (let a = 0; a < TWO_PI; a += 0.1) {
-            let x = 16 * pow(sin(a), 3);
-            let y = -(13 * cos(a) - 5 * cos(2*a) - 2 * cos(3*a) - cos(4*a));
-            let nx = noise(a, i, t) * 6;
-            let ny = noise(a + 10, i, t) * 6;
-            vertex((x * s) + nx, (y * s) + ny);
-        }
-        endShape(CLOSE);
+  // 状态0：跳动与苏醒
+  if (appState === 0) {
+    let recoveryProgress = 1.0;
+    if (heartRecoveryStartTime > 0) {
+        // 从 0 缓慢升到 1 (耗时4000毫秒=4秒)
+        recoveryProgress = constrain((millis() - heartRecoveryStartTime) / 4000, 0, 1);
     }
-    pop();
+    heartAlpha = 255 * recoveryProgress; 
+    
+    // 利用 sin 函数模拟心跳 regularBeat
+    let regularBeat = sin(time * 4) * 0.05 * recoveryProgress;
+    // 利用 Perlin Noise 模拟手绘的不规则抖动 irregularJitter
+    let irregularJitter = (noise(time * 3) - 0.5) * 0.15 * recoveryProgress;
+    
+    targetScale = map(recoveryProgress, 0, 1, 0.8, 1.2) * (1 + regularBeat + irregularJitter);
+    scale(targetScale);
+  } 
+  // 状态1：融化涣散
+  else if (appState === 1) {
+    heartAlpha = map(meltProgress, 0, 1, 255, 0); // 透明度降低
+    scale(1.2 * (1 + meltProgress * 1.5));        // 体积膨胀
+  }
+
+  // 利用降帧原理(frameStep)实现定格动画的顿挫感
+  let frameStep = floor(frameCount / 6);
+  noStroke();
+  
+  // 绘制 4 层填色，每层加入随机偏移，造成“颜料涂不匀”的粗糙感
+  for (let layer = 0; layer < 4; layer++) {
+    // 🛠️【修改点】改变下面 RGB 的基础值可以修改爱心的颜色 (默认是粉红色系)
+    let r = 237 + map(noise(layer, 1, frameStep), 0, 1, -15, 10);
+    let g = 34 + map(noise(layer, 2, frameStep), 0, 1, -10, 10);
+    let b = 93 + map(noise(layer, 3, frameStep), 0, 1, -20, 20);
+    fill(r, g, b, heartAlpha * 0.35);
+
+    beginShape();
+    for (let a = 0; a < TWO_PI; a += 0.4) {
+      // 经典的爱心数学极坐标参数方程
+      let x = 16 * pow(sin(a), 3);
+      let y = -(13 * cos(a) - 5 * cos(2 * a) - 2 * cos(3 * a) - cos(4 * a));
+      x += map(noise(a, layer, frameStep), 0, 1, -3, 3); // 边缘抖动毛刺
+      y += map(noise(a, layer + 10, frameStep), 0, 1, -3, 3);
+      if (meltProgress > 0) { // 融化时被风吹散的向量
+        let dispersion = map(meltProgress, 0, 1, 0, 60) * noise(x, y, time);
+        x += cos(a) * dispersion;
+        y += sin(a) * dispersion + meltProgress * 30;
+      }
+      vertex(x, y);
+    }
+    endShape(CLOSE);
+  }
+
+  // 绘制外侧的手绘草图描边线
+  noFill();
+  for (let lineLayer = 0; lineLayer < 3; lineLayer++) {
+    stroke(200, 20, 70, heartAlpha * 0.8);
+    strokeWeight(map(noise(lineLayer, frameStep), 0, 1, 0.5, 2));
+    beginShape();
+    for (let a = 0; a < TWO_PI; a += 0.3) {
+      let x = 16 * pow(sin(a), 3);
+      let y = -(13 * cos(a) - 5 * cos(2 * a) - 2 * cos(3 * a) - cos(4 * a));
+      x += map(noise(a + 50, lineLayer, frameStep), 0, 1, -4, 4);
+      y += map(noise(a + 100, lineLayer, frameStep), 0, 1, -4, 4);
+      if (meltProgress > 0) {
+        let dispersion = map(meltProgress, 0, 1, 0, 80) * noise(x, y, time);
+        x += cos(a) * dispersion;
+        y += sin(a) * dispersion + meltProgress * 40;
+      }
+      vertex(x, y);
+    }
+    endShape(CLOSE);
+  }
+  pop();
 }
 
-function triggerRipple(x, y, life = 1.0) {
-    ripples.push({ x, y, radius: 0, life });
-}
+// ==========================================
+// 补全：事件与音频生成代码与缺失的类
+// ==========================================
 
-function mousePressed(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+function mousePressed(event) {
+    // 避开 UI 元素的点击
+    if (event && event.target && (event.target.tagName === 'INPUT' || event.target.tagName === 'BUTTON')) {
+        return;
+    }
+
     if (appState === 0) {
         appState = 1;
-        meltStartTime = millis();
-        initAudio();
-        // 播放背景音乐
-        if(bgm) bgm.play().catch(err => console.log("BGM play failed, need user gesture"));
+        meltStartTime = millis(); 
+        startTime = millis(); 
+        if (myBGM) myBGM.play().catch(e => console.log("BGM 自动播放被阻止", e));
+        initAudioEngine(); 
     }
-    if (appState >= 2) {
-        triggerRipple(mouseX, mouseY);
-        playWaterDropSound();
-    }
-}
-
-function mouseMoved() {
-    if (appState === 2 && frameCount % 6 === 0) {
-        if (dist(mouseX, mouseY, pmouseX, pmouseY) > 8) triggerRipple(mouseX, mouseY, 0.4);
+    
+    if (appState > 0) {
+        playRealisticWaterDrop(); 
+        ripples.push({ x: mouseX, y: mouseY, radius: 0, life: 1.0, isTrail: false });
     }
 }
 
-class ProceduralFish {
-    constructor() {
-        this.reset();
-    }
-    reset() {
-        this.pos = createVector(0, 0);
-        this.angle = 0;
-        this.active = false;
-        this.alpha = 0;
-        this.t = 0;
-        this.isBroken = false;
-        this.vx = 0;
-        this.vy = 0;
-    }
-    spawn() {
-        this.active = true;
-        this.pos = createVector(random(width), random(height));
-        this.angle = random(TWO_PI);
-        this.alpha = 0;
-        this.isBroken = false;
-    }
-    update() {
-        if (!this.active) return;
-        
-        if (this.isBroken) {
-            // 破碎下落逻辑
-            this.vy += 0.12; 
-            this.pos.x += this.vx;
-            this.pos.y += this.vy;
-            this.alpha = lerp(this.alpha, 0, 0.04);
-            if (this.alpha < 1) this.active = false;
-            return;
-        }
-
-        this.t += 0.015; // 减慢时间流逝速度，让摆动更平缓
-        let center = createVector(width/2, height/2);
-        let distToCenter = p5.Vector.dist(this.pos, center);
-        let steer = p5.Vector.sub(center, this.pos);
-        steer.normalize();
-        let edgeThreshold = min(width, height) * 0.35;
-        let steerStrength = map(distToCenter, edgeThreshold, edgeThreshold + 200, 0, 0.07, true);
-        let noiseAngle = (noise(this.t) - 0.5) * 0.4; // 减小噪声强度
-        this.angle += noiseAngle;
-        let targetAngle = steer.heading();
-        let angleDiff = targetAngle - this.angle;
-        while (angleDiff > PI) angleDiff -= TWO_PI;
-        while (angleDiff < -PI) angleDiff += TWO_PI;
-        this.angle += angleDiff * steerStrength;
-        
-        // 减慢移动速度系数从 2.3 降到 1.5
-        this.pos.x += cos(this.angle) * 1.5;
-        this.pos.y += sin(this.angle) * 1.5;
-        this.alpha = lerp(this.alpha, 160, 0.01);
-    }
-    draw() {
-        if (!this.active) return;
-        push();
-        translate(this.pos.x, this.pos.y);
-        rotate(this.angle);
-        let wiggle = sin(this.t * 8) * 0.2; // 减慢尾巴摆动速度
-        fill(100, 180, 240, this.alpha);
-        noStroke();
-        ellipse(0, 0, 32, 14);
-        push();
-        translate(-16, 0);
-        rotate(wiggle);
-        triangle(0, 0, -10, -8, -10, 8);
-        pop();
-        fill(255, this.alpha);
-        circle(10, -3, 3);
-        pop();
-    }
-}
-
-class WaterCharacterLayer {
-    constructor() {
-        this.chars = ["~", "·", "°", "≈"];
-        this.active = false;
-        this.zOff = 0;
-    }
-    update() { if (this.active) this.zOff += 0.006; }
-    draw() {
-        if (!this.active) return;
-        textSize(10);
-        textAlign(LEFT, TOP);
-        for (let x = 0; x < width; x += 45) {
-            for (let y = 0; y < height; y += 45) {
-                let n = noise(x * 0.005, y * 0.005, this.zOff);
-                if (n > 0.48) {
-                    let c = this.chars[floor(n * this.chars.length) % this.chars.length];
-                    fill(80, 160, 220, map(n, 0.48, 1, 0, 30));
-                    text(c, x, y);
-                }
-            }
-        }
-        textSize(fontSize);
-        textAlign(CENTER, CENTER);
-    }
-}
-
-function initAudio() {
+function initAudioEngine() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    if (!flowGainNode) {
+        let bufferSize = audioCtx.sampleRate * 2;
+        let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        let data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        let noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = buffer;
+        noiseSource.loop = true;
+
+        flowFilterNode = audioCtx.createBiquadFilter();
+        flowFilterNode.type = 'lowpass';
+        flowFilterNode.frequency.value = 300; 
+
+        flowGainNode = audioCtx.createGain();
+        flowGainNode.gain.value = 0; 
+
+        noiseSource.connect(flowFilterNode);
+        flowFilterNode.connect(flowGainNode);
+        flowGainNode.connect(audioCtx.destination);
+        noiseSource.start();
+    }
 }
 
-function playWaterDropSound() {
+function playRealisticWaterDrop(volMod = 0.8) {
     if (!audioCtx) return;
     const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const gainNode = audioCtx.createGain();
+
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(250 + random(350), audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(15, audioCtx.currentTime + 0.4);
-    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    osc.frequency.setValueAtTime(300 + random(-50, 150), audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200 + random(-200, 300), audioCtx.currentTime + 0.05); 
+
+    gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(volMod, audioCtx.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.4);
+    osc.stop(audioCtx.currentTime + 0.2);
+}
+
+// 补全：水纹背景层
+class WaterCharacterLayer {
+    constructor() {}
+    update() {}
+    draw() {}
+}
+
+// 补全：游动的鱼（纯代码绘制代替图片加载）
+class ImageFish {
+    constructor() {
+        this.posHead = createVector(-100, height / 2);
+        this.alphaState = 0; 
+        this.opacity = 255; // 新增：用于控制鱼的整体透明度
+    }
+    swimIn() {
+        this.alphaState = 1;
+        this.opacity = 255; // 重新游出时重置透明度
+        this.posHead.x = -50;
+        this.posHead.y = random(height * 0.3, height * 0.7);
+    }
+    update() {
+        if (this.alphaState > 0) {
+            this.posHead.x += 1.5; // 鱼向右游动
+            this.posHead.y += sin(frameCount * 0.05) * 0.5; // 上下摆动
+            
+            // 游出屏幕或透明度降至0以下时重置隐藏
+            if (this.posHead.x > width + 100 || this.opacity <= 0) {
+                this.alphaState = 0; 
+            }
+        }
+    }
+    draw() {
+        if (this.alphaState > 0) {
+            push();
+            // 应用整体透明度
+            drawingContext.globalAlpha = max(0, this.opacity) / 255;
+            translate(this.posHead.x, this.posHead.y);
+            
+            // 设置渐变色：从尾部（透明浅蓝）到头部（深水蓝）
+            let gradient = drawingContext.createLinearGradient(-25, 0, 15, 0);
+            gradient.addColorStop(0, 'rgba(251, 128, 97, 0.2)'); 
+            gradient.addColorStop(1, 'rgba(231, 45, 125, 0.9)');  
+            drawingContext.fillStyle = gradient;
+            noStroke();
+            
+            // 绘制鱼身
+            ellipse(0, 0, 30, 12); 
+            
+            // 绘制可灵活摆动的鱼尾
+            push();
+            translate(-13, 0); // 坐标原点移至尾部连接处
+            rotate(sin(frameCount * 0.25) * 0.45); // 利用 sin 函数制造周期性摆动
+            triangle(0, 0, -12, -8, -12, 8); 
+            pop();
+            
+            pop();
+        }
+    }
+}
+
+function distSq(x1, y1, x2, y2) {
+    return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-    calculateLayout();
+    
+    // 窗口改变时重新计算自适应属性，并更新画面布局
+    updateLayoutMetrics(); 
+    if (appState > 0) {
+        calculateLayout(); 
+    }
 }
 </script>
 </body>
