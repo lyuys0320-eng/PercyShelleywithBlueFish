@@ -117,13 +117,13 @@
 <script>
 /**
  * 雪莱诗句 - 沉浸式水波互动（生命轮回·终极完全体）
- * 包含服务端隐藏 API Key 的完全安全版
+ * 包含服务端隐藏 API Key 的完全安全版 + 绽放花簇效果
  */
 
 let fishImg;
 
 // 存储原诗，用于每次轮回结束后恢复原状
-const ORIGINAL_POEM = `Hail to thee, blithe Spirit! Bird thou never wert... That from Heaven, or near it, Pourest thy full heart, In profuse strains of unpremeditated art. Higher still and higher, From the earth thou springest, Like a cloud of fire; The blue deep thou wingest, And singing still dost soar, and soaring ever singest. In the golden lightning, Of the sunken sun, O’er which clouds are bright’ning, Thou dost float and run, Like an unbodied joy whose race is just begun. The pale purple even, Melts around thy flight; Like a star of Heaven, In the broad daylight, Thou art unseen, but yet I hear thy shrill delight; Keen as are the arrows, Of that silver sphere, Whose intense lamp narrows, In the white dawn clear, Until we hardly see--we feel that it is there. All the earth and air, With thy voice is loud. As, when night is bare. From one lonely cloud, The moon rains out her beams, and heaven is overflowed. What thou art we know not; What is most like thee? From rainbow clouds there flow not, Drops so bright to see, As from thy presence showers a rain of melody. Like a poet hidden, In the light of thought, Singing hymns unbidden, Till the world is wrought, To sympathy with hopes and fears it heeded not; Like a high-born maiden, In a palace tower, Soothing her love-laden, Soul in secret hour, With music sweet as love, which overflows her bower; Like a glow-worm golden, In a dell of dew, Scattering unbeholden, Its aerial hue. Like a rose embowered, In its own green leaves, By warm winds deflowered, Till the scent it gives, Makes faint with too much sweet these heavy-winged thieves. Sound of vernal showers, On the twinkling grass, Rain-awakened flowers, All that ever was, Joyous, and clear, and fresh, thy music doth surpass. Teach us, sprite or bird, What sweet thoughts are thine, I have never heard, Praise of love or wine, That panted forth a flood of rapture so divine. Chorus hymeneal, Or triumphal chaunt, Matched with thine, would be all, But an empty vaunt, A thing wherein we feel there is some hidden want. What objects are the fountains, Of thy happy strain? What fields, or waves, or mountains? What shapes of sky or plain? What love of thine own kind? what ignorance of pain? With thy clear keen joyance, Languor cannot be, Shadow of annoyance, Never came near thee. Thou lovest, but ne’er knew love’s sad satiety. Waking or asleep, Thou of death must deem, Things more true and deep, Than we mortals dream, Or how could thy notes flow in such a crystal stream? We look before and after, And pine for what is not, Our sincerest laughter, With some pain is fraught; Our sweetest songs are those that tell of saddest thought. Yet if we could scorn, Hate, and pride, and fear; If we were things born, Not to shed a tear, I know not how thy joy we ever should come near. Better than all measures, Of delightful sound, Better than all treasures, That in books are found, Thy skill to poet were, thou scorner of the ground! Teach me half the gladness, That thy brain must know, Such harmonious madness, From my lips would flow, The world should listen then, as I am listening now!.`;
+const ORIGINAL_POEM = `Hail to thee, blithe Spirit! Bird thou never wert... That from Heaven, or near it, Pourest thy full heart, In profuse strains of unpremeditated art. Higher still and higher, From the earth thou springest, Like a cloud of fire; The blue deep thou wingest, And singing still dost soar, and soaring ever singest. In the golden lightning, Of the sunken sun, O’er which clouds are bright’ning, Thou dost float and run, Like an unbodied joy whose race is just begun. The pale purple even, Melts around thy flight; Like a star of Heaven, In the broad daylight, Thou art unseen, but yet I hear thy shrill delight; Keen as are the arrows, Of that silver sphere, Whose intense lamp narrows, In the white dawn clear, Until we hardly see--we feel that it is there. All the earth and air, With thy voice is loud. As, when night is bare. From one lonely cloud, The moon rains out her beams, and heaven is overflowed. What thou art we know not; What is most like thee? From rainbow clouds there flow not, Drops so bright to see, As from thy presence showers a rain of melody. Like a poet hidden, In the light of thought, Singing hymns unbidden, Till the world is wrought, To sympathy with hopes and fears it heeded not; Like a high-born maiden, In a palace tower, Soothing her love-laden, Soul in secret hour, With music sweet as love, which overflows her bower; Like a glow-worm golden, In a dell of dew, Scattering unbeholden, Its aerial hue. Like a rose embowered, In its own green leaves, By warm winds deflowered, Till the scent it gives, Makes faint with too much sweet these heavy-winged thieves. Sound of vernal showers, On the twinkling grass, Rain-awakened flowers, All that ever was, Joyous, and clear, and fresh, thy music doth surpass. Teach us, sprite or bird, What sweet thoughts are thine, I have never heard, Praise of love or wine, That panted forth a flood of rapture so divine. Chorus hymeneal, Or triumphal chaunt, Matched with thine, would be all, But an empty vaunt, A thing wherein we feel there is some hidden want. What objects are the fountains, Of thy happy strain? What fields, or waves, or mountains? What shapes of sky or plain? What love of thine own kind? what ignorance of pain? With thy clear keen joyance, Languor cannot be, Shadow of annoyance, Never came near thee. Thou lovest, but ne’er knew love’s sad satiety. Waking or asleep, Thou of death must deem, Things more true and deep, Than we mortals dream, Or how could thy notes flow in such a crystal stream? We look before and after, And pine for what is not, Our sincerest laughter, With some pain is fraught; Our sweetest songs are fixed that tell of saddest thought. Yet if we could scorn, Hate, and pride, and fear; If we were things born, Not to shed a tear, I know not how thy joy we ever should come near. Better than all measures, Of delightful sound, Better than all treasures, That in books are found, Thy skill to poet were, thou scorner of the ground! Teach me half the gladness, That thy brain must know, Such harmonious madness, From my lips would flow, The world should listen then, as I am listening now!.`;
 let shelleyPoems = ORIGINAL_POEM;
 
 // 用于存储屏幕上每一个字符对象的数组
@@ -136,7 +136,7 @@ let totalChars = 0;
 let startTime = 0;        
 const FILL_DURATION = 10000;  // 诗句如潮水般填满屏幕需要的时间 (8秒)
 const MELT_DURATION = 2000;  // 开头爱心融化、涣散需要的时间 (2秒)
-const DISPERSE_DELAY = 8000; // 诗句完全填满后，在屏幕上停留展示的时间 (8秒)
+const DISPERSE_DELAY = 10000; // 诗句完全填满后，在屏幕上停留展示的时间 (8秒)
 
 // 状态控制变量 (0=爱心, 1=爱心融化, 2=水波互动, 3=破碎消散)
 let appState = 0; 
@@ -159,9 +159,10 @@ let uiTextColor = '#555555';    // 输入框文字的颜色 (深灰色)
 let lastCanvasWidth = 0; 
 
 // ==========================================
-// 🛠️【修改点：水波物理引擎控制】
+// 🛠️【修改点：水波与花簇引擎控制】
 // ==========================================
 let ripples = [];            // 存储当前屏幕上的所有水波涟漪
+let flowerClusters = [];     // 🌸 新增：存储点击生成的所有花簇
 const WAVE_SPEED = 3;        // 水波向外扩散的速度 (越大波纹跑得越快)
 const WAVE_THICKNESS = 45;   // 水波的厚度/影响范围 (越大被推开的字越多)
 const WAVE_AMP = 15;         // 水波的起伏强度 (越大字被推开的距离越远)
@@ -206,9 +207,9 @@ function calculateLayout() {
       char: char, tx: currentX, ty: currentY,
       currentX: currentX, currentY: currentY, opacity: 0,
       vx: random(-6, 6),        // 碎裂时：水平方向飞散的速度
-      vy: random(20.0, 40.0),    // 碎裂时：垂直向下坠落的速度 (调大数字掉得更快)
+      vy: random(10.0, 20.0),    // 碎裂时：垂直向下坠落的速度 (调大数字掉得更快)
       rotation: 0, 
-      rv: random(-2, 2),    // 碎裂时：旋转翻滚的速度
+      rv: random(-1.5, 1.5),    // 碎裂时：旋转翻滚的速度
       disperseDelay: map(currentY, 0, height, 0, 1000) // 延迟，让上面的字先碎，下面的字后碎
     });
     
@@ -228,12 +229,10 @@ function calculateLayout() {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // ==========================================
-// 🛠️核心修改点：调用你自己的 Vercel 后端接口，移除明文的 API Key
+// 调用 Vercel 后端接口
 // ==========================================
 async function fetchServerlessPoem(prompt, retries = 5) {
-  // ⚠️【极度重要】将这里的网址替换成你部署到 Vercel 后系统给你的实际域名
-  // 例如：https://my-poem-project.vercel.app/api/poem
- const url = `https://percy-shelleywith-blue-fish.vercel.app/api/poem`; 
+  const url = `https://percy-shelleywith-blue-fish.vercel.app/api/poem`; 
 
   isFetching = true;
   for (let i = 0; i < retries; i++) {
@@ -274,7 +273,7 @@ function setupUI() {
         ripples.push({ x: width / 2, y: height / 2, radius: 0, life: 3.0, isTrail: false });
         playRealisticWaterDrop();
 
-        const newPoem = await fetchServerlessPoem(prompt); // 👈 替换为调用服务端接口
+        const newPoem = await fetchServerlessPoem(prompt); // 调用服务端接口
         
         shelleyPoems = newPoem.replace(/\n/g, ' '); 
         isNewPoem = true;
@@ -472,6 +471,63 @@ function draw() {
 
     fish.update(); fish.draw(); // 画鱼
 
+    // 🌸 渲染：更新和绘制点击生成的花簇 🌸
+    for (let i = flowerClusters.length - 1; i >= 0; i--) {
+        let cluster = flowerClusters[i];
+        let age = now - cluster.spawnTime;
+        let allDead = true;
+
+        push();
+        translate(cluster.x, cluster.y);
+        noStroke();
+
+        for (let item of cluster.items) {
+            let isDispersing = (age >= 3000 + item.delay) || (appState === 3);
+
+            // 生长阶段（依靠各自定义的 delay 营造“逐渐变多”的感觉）
+            if (age > item.delay && !isDispersing) {
+                item.size = lerp(item.size, item.maxSize, 0.05); // 平滑变大
+                allDead = false;
+            } 
+            // 3秒后或在字符消散状态下逐渐消散/缩小
+            else if (isDispersing) {
+                item.size = lerp(item.size, 0, 0.04);
+                if (item.size > 0.5) allDead = false; // 还没完全消失
+            }
+
+            // 如果该花瓣/叶子处于可见状态，就画出来
+            if (item.size > 0.5) {
+                push();
+                translate(item.ox, item.oy);
+                rotate(item.rot);
+                // 根据尺寸来映射透明度，更显柔和
+                let alpha = map(item.size, 0, item.maxSize, 0, 220);
+                fill(item.col[0], item.col[1], item.col[2], alpha);
+                
+                if (item.isLeaf) {
+                    // 画绿叶 (椭圆)
+                    ellipse(0, 0, item.size * 2, item.size);
+                } else {
+                    // 画粉色花朵 (简单的5片花瓣叠加)
+                    for (let p = 0; p < 5; p++) {
+                        ellipse(item.size * 0.6, 0, item.size * 1.2, item.size * 0.8);
+                        rotate(TWO_PI / 5);
+                    }
+                    // 画微黄色的花心
+                    fill(255, 230, 150, alpha * 0.9);
+                    ellipse(0, 0, item.size * 0.8);
+                }
+                pop();
+            }
+        }
+        pop();
+
+        // 当这簇花过了3秒（或处于全局消散状态）且所有花朵都已经缩到最小消失，则清理数组释放内存
+        if (allDead && (age > 3000 || appState === 3)) {
+            flowerClusters.splice(i, 1);
+        }
+    }
+
     // 如果字填满了，且还不到碎裂时间，显示底部的输入框
     if (appState === 2 && elapsed >= FILL_DURATION && stayStartTime > 0 && now - stayStartTime < 1000 && !isFetching) {
       document.getElementById('ui-container').classList.add('visible');
@@ -536,7 +592,7 @@ function drawHeart() {
   
   // 绘制 4 层填色，每层加入随机偏移，造成“颜料涂不匀”的粗糙感
   for (let layer = 0; layer < 4; layer++) {
-    // 🛠️【修改点】改变下面 RGB 的基础值可以修改爱心的颜色 (默认是粉红色系)
+    // 改变下面 RGB 的基础值可以修改爱心的颜色 (默认是粉红色系)
     let r = 237 + map(noise(layer, 1, frameStep), 0, 1, -15, 10);
     let g = 34 + map(noise(layer, 2, frameStep), 0, 1, -10, 10);
     let b = 93 + map(noise(layer, 3, frameStep), 0, 1, -20, 20);
@@ -603,6 +659,48 @@ function mousePressed(event) {
     if (appState > 0) {
         playRealisticWaterDrop(); 
         ripples.push({ x: mouseX, y: mouseY, radius: 0, life: 1.0, isTrail: false });
+
+        // 🌸 只有在字符铺满过程/水波互动状态且非消散状态时，才生成花和绿叶 🌸
+        if (appState === 2) {
+            let cluster = {
+                x: mouseX,
+                y: mouseY,
+                spawnTime: millis(),
+                items: []
+            };
+            // 每簇花大约由 15~25 片花朵或叶子组成
+            let numItems = floor(random(15, 25));
+            for (let i = 0; i < numItems; i++) {
+                let isLeaf = random() > 0.75; // 大概25%的概率是绿叶
+                
+                // 让它们聚集在中心，四周分散
+                let r = pow(random(), 1.5) * 60; 
+                let theta = random(TWO_PI);
+                let offsetX = r * cos(theta);
+                let offsetY = r * sin(theta);
+                
+                let col;
+                if (isLeaf) {
+                    // 绿叶系 (RGB)
+                    col = [random(130, 170), random(190, 230), random(130, 170)];
+                } else {
+                    // 各种粉色系调和 (RGB)
+                    col = [random(220, 255), random(100, 160), random(150, 210)];
+                }
+
+                cluster.items.push({
+                    ox: offsetX,
+                    oy: offsetY,
+                    maxSize: isLeaf ? random(8, 14) : random(10, 20),
+                    size: 0, // 初始尺寸为0，便于平滑缩放生长
+                    col: col,
+                    rot: random(TWO_PI),
+                    delay: random(0, 1500), // 每一片有不同的延迟时间（0~1.5秒）来实现“逐渐变多”
+                    isLeaf: isLeaf
+                });
+            }
+            flowerClusters.push(cluster);
+        }
     }
 }
 
