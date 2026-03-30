@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shelley's Water Ripples - Enhanced</title>
+    <title>ShelleyToAskylark</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=EB+Garamond:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <style>
@@ -17,7 +17,7 @@
 
         #ui-container {
             position: absolute;
-            bottom: 40px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -134,7 +134,7 @@ let totalChars = 0;
 // 🛠️【修改点：时间与动画节奏控制】 (单位：毫秒 1000ms = 1秒)
 // ==========================================
 let startTime = 0;        
-const FILL_DURATION = 10000;  // 诗句如潮水般填满屏幕需要的时间 (8秒)
+const FILL_DURATION = 6000;  // 加快填满速度：诗句如潮水般填满屏幕需要的时间 (6秒)
 const MELT_DURATION = 2000;  // 开头爱心融化、涣散需要的时间 (2秒)
 const DISPERSE_DELAY = 8000; // 诗句完全填满后，在屏幕上停留展示的时间 (8秒)
 
@@ -152,7 +152,7 @@ let isFetching = false;
 let fontSize;           // 字体大小 (动态计算)
 let colSpacing;         // 列间距 (横向字间距) (动态计算)
 let charSpacing;        // 行间距 (纵向字间距) (动态计算)
-let margin = 80;             // 屏幕边缘留白距离
+let margin = 65;             // 屏幕边缘留白距离
 let bgColor = [250, 248, 240];  // 屏幕背景色 (RGB：米白色)
 let textColor = [80, 160, 220]; // 诗句和水波字符的颜色 (RGB：水蓝色)
 let uiTextColor = '#555555';    // 输入框文字的颜色 (深灰色)
@@ -185,9 +185,9 @@ function updateLayoutMetrics() {
     } else {
         fontSize = constrain(min(windowWidth, windowHeight) * 0.025, 14, 26);
     }
-    // 间距也跟随字体大小等比缩放
-    colSpacing = fontSize * 1.35;
-    charSpacing = fontSize * 1.0;
+    // 针对横排阅读调整间距：字距缩窄，行距拉宽
+    colSpacing = fontSize * 0.55;
+    charSpacing = fontSize * 1.5;
     // 更新绘制环境的字体大小
     textSize(fontSize);
 }
@@ -198,34 +198,65 @@ function updateLayoutMetrics() {
 function calculateLayout() {
   charObjects = []; totalChars = 0;
   let currentX = margin; let currentY = margin;
-  let cleanText = shelleyPoems.trim() + "   "; // 添加空格分隔
   
-  let i = 0; // 用于持续取字的索引
+  // 核心修改：将文本按空格拆分成单词数组，不再逐个字母盲目排版
+  let words = shelleyPoems.trim().split(/\s+/);
+  if (words.length === 0) return;
   
-  // 核心修改点：无限循环，直到 X 坐标超出屏幕右侧边界
-  while (currentX <= width - margin) {
-    // 利用取模运算 % 无限重复获取诗句内容
-    let char = cleanText[i % cleanText.length];
+  // 修复：增加安全边界保护，防止在极小 iframe 初始化时计算为空
+  let safeHeight = max(height, 400);
+  let safeWidth = max(width, 300);
+  
+  let wordIndex = 0; // 记录当前正在处理的单词索引
+  
+  // 核心修改点：改为从左向右横向排列，判断Y是否超出屏幕底边界，并保证单词完整
+  while (currentY <= safeHeight - margin) {
+    // 获取当前需要排版的单词（利用取模无限循环）
+    let word = words[wordIndex % words.length];
     
-    charObjects.push({
-      char: char, tx: currentX, ty: currentY,
-      currentX: currentX, currentY: currentY, opacity: 0,
-      vx: random(-6, 6),        // 碎裂时：水平方向飞散的速度
-      vy: random(10.0, 20.0),    // 碎裂时：垂直向下坠落的速度 (调大数字掉得更快)
-      rotation: 0, 
-      rv: random(-1.5, 1.5),    // 碎裂时：旋转翻滚的速度
-      disperseDelay: map(currentY, 0, height, 0, 1000) // 延迟，让上面的字先碎，下面的字后碎
-    });
+    // 计算这个单词完全展开所需的总宽度
+    let wordWidth = word.length * colSpacing;
     
-    totalChars++; 
-    currentY += charSpacing; // 纵向换字
-    
-    // 如果当前列到了底部边界，就换列
-    if (currentY > height - margin) { 
-        currentX += colSpacing; 
-        currentY = margin; 
+    // 智能换行判定：如果当前行剩余空间放不下整个单词，并且这不是这一行的开头，则提前换行
+    if (currentX + wordWidth > safeWidth - margin && currentX > margin) {
+        currentY += charSpacing; // 纵向换行
+        currentX = margin;       // X坐标回到行首
     }
-    i++;
+    
+    // 如果换行后发现Y坐标已经超出了屏幕底边界，直接停止排版
+    if (currentY > safeHeight - margin) break;
+    
+    // 空间足够，开始逐个字母放置这个完整的单词
+    for (let j = 0; j < word.length; j++) {
+        let char = word[j];
+        charObjects.push({
+          char: char, tx: currentX, ty: currentY,
+          currentX: currentX, currentY: currentY, opacity: 0,
+          vx: random(-4, 4),        // 减慢消散：水平飞散速度
+          vy: random(11.0, 15.0),     // 减慢消散：垂直坠落速度
+          rotation: 0, 
+          rv: random(-1.9, 1.9),    // 减慢消散：旋转翻滚速度
+          disperseDelay: map(currentY, 0, safeHeight, 0, 1000) // 上面的字先碎
+        });
+        
+        totalChars++; 
+        currentX += colSpacing; // 横向推进一个字母的宽度
+    }
+    
+    // 一个单词排版结束后，补上一个空格字符
+    charObjects.push({
+        char: ' ', tx: currentX, ty: currentY,
+        currentX: currentX, currentY: currentY, opacity: 0,
+        vx: random(-3, 3), vy: random(4.0, 8.0), rotation: 0, rv: random(-1.0, 1.0),
+        disperseDelay: map(currentY, 0, safeHeight, 0, 1000)
+    });
+    totalChars++;
+    currentX += colSpacing; // 横向推进一个空格的宽度
+    
+    wordIndex++; // 准备处理下一个单词
+    
+    // 终极保险，防止死循环
+    if (totalChars > 3000) break; 
   }
 }
 
@@ -246,15 +277,16 @@ const FALLBACK_POEMS = [
     "The autumn leaves are falling, one by one, A shower of amber, crimson, and of gold. Their brief and bitter dance is finally done, A tragic story that is quickly told. Yet in their passing, there is beauty still, A quiet grace that lingers on the hill.",
     "A thousand whispers echo in the dark, A symphony of secrets yet untold. The dying embers of a single spark, Against the bitter, unrelenting cold. Though winter claims the earth in icy chains, The memory of the gentle spring remains."
 ];
+
 async function fetchServerlessPoem(prompt, retries = 2) { 
-  const url = `/.netlify/functions/poem`;
+  const url = `/.netlify/functions/poem`; 
 
   isFetching = true;
   for (let i = 0; i < retries; i++) {
     try {
       // 增加 AbortController 来实现请求超时熔断
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 设置 15秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 设置 15 秒超时
 
       const response = await fetch(url, { 
           method: 'POST', 
@@ -482,7 +514,7 @@ function draw() {
             c.currentX += c.vx; // 加上水平速度
             c.currentY += c.vy; // 加上下落速度
             c.rotation += c.rv; // 加上旋转
-            c.opacity -= 8;     // 减去透明度
+            c.opacity -= 3;     // 减慢消散：减小透明度衰减速度（原来是8）
           }
         }
         
@@ -521,8 +553,8 @@ function draw() {
     // 若当前为消散状态，则鱼群也会同步快速变透明并伴随轻微下坠
     if (appState === 3) {
       for (let f of fishes) {
-          f.opacity -= 8;
-          f.posHead.y += 2;
+          f.opacity -= 3;     // 减慢消散：变慢鱼的消失速度（原来是8）
+          f.posHead.y += 0.8; // 减慢消散：变慢下坠速度（原来是2）
       }
     }
 
@@ -551,7 +583,7 @@ function draw() {
             } 
             // 3秒后或在字符消散状态下逐渐消散/缩小
             else if (isDispersing) {
-                item.size = lerp(item.size, 0, 0.04);
+                item.size = lerp(item.size, 0, 0.02); // 减慢消散：减小缩小的速度（原来是0.04）
                 if (item.size > 0.5) allDead = false; // 还没完全消失
             }
 
@@ -712,6 +744,11 @@ function mousePressed(event) {
         appState = 1;
         meltStartTime = millis(); 
         startTime = millis(); 
+        
+        // 修复关键点：确保在用户真正点击交互时，基于完全加载好的准确尺寸强制重新计算文字排版
+        updateLayoutMetrics();
+        calculateLayout();
+        
         if (myBGM) myBGM.play().catch(e => console.log("BGM 自动播放被阻止", e));
         initAudioEngine(); 
     }
@@ -831,6 +868,8 @@ class ImageFish {
         this.opacity = 255; // 用于控制鱼的整体透明度
         this.lifeTime = 0;
         this.spawnSide = 'left'; // 记录出生方向
+        this.swimMode = 'straight'; // 新增：当前游动模式 (直行或打转)
+        this.modeTimer = 0; // 新增：模式切换计时器
     }
     swimIn() {
         this.alphaState = 1;
@@ -850,38 +889,62 @@ class ImageFish {
         this.posHead.y = random(height * 0.2, height * 0.8);
         this.noiseOffset = random(1000);
         this.lifeTime = random(800, 1500); // 随机游动一段时间
+        this.modeTimer = random(100, 300); // 赋初始模式时间
+        this.swimMode = 'straight'; // 入场时保持直行
     }
     update() {
         if (this.alphaState > 0) {
-            // 利用柏林噪声(Perlin Noise)制造自然随性的游动转向
-            let angleNoise = map(noise(this.noiseOffset), 0, 1, -PI/16, PI/16);
-            this.vel.rotate(angleNoise);
+            // 模式切换：随机决定是打转还是直线游动
+            this.modeTimer--;
+            if (this.modeTimer <= 0) {
+                this.swimMode = random() > 0.6 ? 'wander' : 'straight'; // 更多概率保持直行
+                this.modeTimer = random(100, 350);
+            }
+
+            if (this.swimMode === 'wander') {
+                // 修复：真正的原地打转。速度迅速衰减到停滞
+                this.vel.mult(0.85); 
+                // 利用噪声决定自转的速度和方向，实现原地灵活扭动身子
+                let spinSpeed = map(noise(this.noiseOffset), 0, 1, -0.15, 0.15);
+                this.angle += spinSpeed;
+            } else {
+                // 直行
+                if (this.vel.mag() < 0.5) {
+                    // 从原地打转状态恢复时，将当前的鱼头朝向转化为前进速度
+                    this.vel = p5.Vector.fromAngle(this.angle).mult(1.5);
+                }
+                
+                // 极小的角度微调，保持大方向向前
+                let angleNoise = map(noise(this.noiseOffset), 0, 1, -PI/60, PI/60);
+                this.vel.rotate(angleNoise);
+                this.vel.setMag(1.5);
+
+                // 平滑调整鱼头的朝向 (跟随速度方向)
+                let targetAngle = this.vel.heading();
+                let diff = targetAngle - this.angle;
+                while (diff < -PI) diff += TWO_PI;
+                while (diff > PI) diff -= TWO_PI;
+                this.angle += diff * 0.1;
+            }
             this.noiseOffset += 0.02;
 
-            // 保持基本游动速度
-            this.vel.setMag(1.5);
-
-            // 边缘检测：让鱼在屏幕可视范围内打转
+            // 边缘检测：让鱼在屏幕可视范围内活动
             let margin = 100;
             let boundaryForce = createVector(0, 0);
             
-            // 左右边界平滑推入逻辑，支持鱼在区域内转弯反弹
-            if (this.posHead.x < margin) boundaryForce.x = map(this.posHead.x, margin, -50, 0, 0.5);
-            if (this.posHead.x > width - margin) boundaryForce.x = map(this.posHead.x, width - margin, width + 50, 0, -0.5);
-            if (this.posHead.y < margin) boundaryForce.y = map(this.posHead.y, margin, 0, 0, 0.5);
-            if (this.posHead.y > height - margin) boundaryForce.y = map(this.posHead.y, height - margin, height, 0, -0.5);
+            // 左右边界平滑推入逻辑
+            if (this.posHead.x < margin) boundaryForce.x = map(this.posHead.x, margin, -50, 0, 0.3);
+            if (this.posHead.x > width - margin) boundaryForce.x = map(this.posHead.x, width - margin, width + 50, 0, -0.3);
+            if (this.posHead.y < margin) boundaryForce.y = map(this.posHead.y, margin, 0, 0, 0.3);
+            if (this.posHead.y > height - margin) boundaryForce.y = map(this.posHead.y, height - margin, height, 0, -0.3);
 
-            this.vel.add(boundaryForce);
-            this.vel.limit(2.5); // 最高限速
+            // 只有在直行时应用边界推力，防止原地打转时被奇怪的力量强制推走
+            if (this.swimMode === 'straight') {
+                this.vel.add(boundaryForce);
+                this.vel.limit(2.5); // 最高限速
+            }
 
             this.posHead.add(this.vel);
-
-            // 平滑调整鱼头的朝向 (鱼身图片向右为0度)
-            let targetAngle = this.vel.heading();
-            let diff = targetAngle - this.angle;
-            while (diff < -PI) diff += TWO_PI;
-            while (diff > PI) diff -= TWO_PI;
-            this.angle += diff * 0.1;
 
             // 生命周期消耗，到期后自动淡出 (消散状态由外部控制，不在此处消耗生命)
             if (appState !== 3) {
