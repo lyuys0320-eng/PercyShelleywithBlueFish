@@ -239,9 +239,13 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const FALLBACK_POEMS = [
     "The stars awaken in the velvet night, And cast their silver shadows on the earth. A silent melody of pure delight, That gives a quiet, melancholic birth. We wander through the shadows, hand in hand, And leave our footprints on the shifting sand.",
     "A gentle breeze sweeps through the silent grove, And whispers secrets to the trembling leaves. A tender song of unforgotten love, That every waking, restless soul receives. The golden sun descends beyond the hill, And leaves the weary world serene and still.",
-    "The moon casts down her silver, trembling light, Upon the silent, slumbering, ancient trees. A solitary bird takes sudden flight, And vanishes into the midnight breeze. Oh, let the shadows wrap my weary heart, Until the breaking dawn bids them depart."
+    "The moon casts down her silver, trembling light, Upon the silent, slumbering, ancient trees. A solitary bird takes sudden flight, And vanishes into the midnight breeze. Oh, let the shadows wrap my weary heart, Until the breaking dawn bids them depart.",
+    "Beneath the arch of twilight's fading gleam, The shadows lengthen on the quiet heath. A solitary flower begins to dream, And whispers to the slumbering earth beneath. We chase the phantoms of a dying day, Until the golden hues dissolve away.",
+    "The weeping willow bows its heavy head, To brush the dewdrops from the emerald grass. The ghosts of ancient lovers, long since dead, Still sigh within the breezes as they pass. And in the silence of this sacred grove, We mourn the fleeting, fragile breath of love.",
+    "O wanderer, who seeks the mountain's crest, Where clouds untangled drift across the blue. The weary sun descends into the west, And paints the heavens in a crimson hue. No earthly sorrow reaches to this height, Bathed in the glory of the dying light.",
+    "The autumn leaves are falling, one by one, A shower of amber, crimson, and of gold. Their brief and bitter dance is finally done, A tragic story that is quickly told. Yet in their passing, there is beauty still, A quiet grace that lingers on the hill.",
+    "A thousand whispers echo in the dark, A symphony of secrets yet untold. The dying embers of a single spark, Against the bitter, unrelenting cold. Though winter claims the earth in icy chains, The memory of the gentle spring remains."
 ];
-
 async function fetchServerlessPoem(prompt, retries = 2) { 
   const url = `/.netlify/functions/poem`;
 
@@ -250,7 +254,7 @@ async function fetchServerlessPoem(prompt, retries = 2) {
     try {
       // 增加 AbortController 来实现请求超时熔断
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 设置 15 秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 设置 15秒超时
 
       const response = await fetch(url, { 
           method: 'POST', 
