@@ -117,7 +117,7 @@
 <script>
 /**
  * 雪莱诗句 - 沉浸式水波互动（生命轮回·终极完全体）
- * 包含服务端隐藏 API Key 的完全安全版 + 绽放花簇效果 + 断网无缝降级处理
+ * 包含服务端隐藏 API Key 的完全安全版 + 绽放花簇效果 + 断网无缝降级处理 + 随机左右游入多彩鱼群
  */
 
 let fishImg;
@@ -168,7 +168,7 @@ const WAVE_THICKNESS = 45;   // 水波的厚度/影响范围 (越大被推开的
 const WAVE_AMP = 15;         // 水波的起伏强度 (越大字被推开的距离越远)
 
 // 音频与背景元素变量
-let audioCtx, flowGainNode, flowFilterNode, waterField, fish;
+let audioCtx, flowGainNode, flowFilterNode, waterField, fishes = [];
 
 let myBGM = new Audio('bgm.mp3');
 myBGM.loop = true;
@@ -362,7 +362,15 @@ function setup() {
   noStroke();
 
   waterField = new WaterCharacterLayer(); // 背景底层的飘动字符
-  fish = new ImageFish(); // 游动的鱼
+  
+  // 初始化鱼群：随机 1-3 条鱼，颜色在默认(粉系)、金色、青色中随机
+  fishes = [];
+  let totalFishCount = floor(random(1, 4)); 
+  let colorOptions = ['default', 'gold', 'cyan'];
+  for(let i=0; i < totalFishCount; i++) {
+      let col = random(colorOptions);
+      fishes.push(new ImageFish(col));
+  }
 
   // 核心：初始化自适应指标，然后再计算文字布局
   updateLayoutMetrics();
@@ -388,7 +396,9 @@ function draw() {
     // 当字填满屏幕后，开始记录“静止展示时间”
     if (appState === 2 && elapsed >= FILL_DURATION && stayStartTime === 0) {
       stayStartTime = now;
-      if (fish.alphaState === 0) fish.swimIn(); // 鱼游出来
+      for (let f of fishes) {
+          if (f.alphaState === 0) f.swimIn(); // 让所有鱼游出来
+      }
     }
     
     // 如果停留时间超过了 DISPERSE_DELAY (8秒)，触发状态3：文字碎裂
@@ -447,12 +457,16 @@ function draw() {
             }
           }
           
-          // 受到鱼游过的影响
-          let df = dist(c.tx, c.ty, fish.posHead.x, fish.posHead.y);
-          if (df < 60) {
-            let force = map(df, 0, 60, 8, 0); // 距离鱼越近，推力越大
-            let angle = atan2(c.ty - fish.posHead.y, c.tx - fish.posHead.x);
-            dx += cos(angle) * force; dy += sin(angle) * force;
+          // 受到所有鱼游过的影响
+          for (let f of fishes) {
+              if (f.alphaState > 0) {
+                  let df = dist(c.tx, c.ty, f.posHead.x, f.posHead.y);
+                  if (df < 60) {
+                    let force = map(df, 0, 60, 8, 0); // 距离鱼越近，推力越大
+                    let angle = atan2(c.ty - f.posHead.y, c.tx - f.posHead.x);
+                    dx += cos(angle) * force; dy += sin(angle) * force;
+                  }
+              }
           }
           c.currentX = c.tx + dx; c.currentY = c.ty + dy;
           
@@ -489,14 +503,29 @@ function draw() {
       shelleyPoems = ORIGINAL_POEM; 
       heartRecoveryStartTime = millis(); 
       calculateLayout(); 
+
+      // 每次轮回重置鱼群，产生随机数量(1-3)和颜色的鱼
+      fishes = [];
+      let totalFishCount = floor(random(1, 4)); 
+      let colorOptions = ['default', 'gold', 'cyan'];
+      for(let i=0; i < totalFishCount; i++) {
+          let col = random(colorOptions);
+          fishes.push(new ImageFish(col));
+      }
     }
 
-    // 若当前为消散状态，则鱼也会同步变透明直到消散
+    // 若当前为消散状态，则鱼群也会同步快速变透明并伴随轻微下坠
     if (appState === 3) {
-      fish.opacity -= 4;
+      for (let f of fishes) {
+          f.opacity -= 8;
+          f.posHead.y += 2;
+      }
     }
 
-    fish.update(); fish.draw(); // 画鱼
+    for (let f of fishes) {
+        f.update(); 
+        f.draw(); 
+    }
 
     // 🌸 渲染：更新和绘制点击生成的花簇 🌸
     for (let i = flowerClusters.length - 1; i >= 0; i--) {
@@ -788,24 +817,78 @@ class WaterCharacterLayer {
 
 // 补全：游动的鱼（纯代码绘制代替图片加载）
 class ImageFish {
-    constructor() {
+    constructor(colorType = 'default') {
+        this.colorType = colorType; // 'default', 'gold', 'cyan'
         this.posHead = createVector(-100, height / 2);
+        this.vel = createVector(0, 0);
+        this.angle = 0;
+        this.noiseOffset = random(1000);
         this.alphaState = 0; 
-        this.opacity = 255; // 新增：用于控制鱼的整体透明度
+        this.opacity = 255; // 用于控制鱼的整体透明度
+        this.lifeTime = 0;
+        this.spawnSide = 'left'; // 记录出生方向
     }
     swimIn() {
         this.alphaState = 1;
         this.opacity = 255; // 重新游出时重置透明度
-        this.posHead.x = -50;
-        this.posHead.y = random(height * 0.3, height * 0.7);
+        this.spawnSide = random() > 0.5 ? 'left' : 'right'; // 随机分配左右入场
+        
+        if (this.spawnSide === 'left') {
+            this.posHead.x = random(-200, -50);
+            this.vel = createVector(1.5, 0); // 初始向右游
+            this.angle = 0;
+        } else {
+            this.posHead.x = width + random(50, 200);
+            this.vel = createVector(-1.5, 0); // 初始向左游
+            this.angle = PI;
+        }
+        
+        this.posHead.y = random(height * 0.2, height * 0.8);
+        this.noiseOffset = random(1000);
+        this.lifeTime = random(800, 1500); // 随机游动一段时间
     }
     update() {
         if (this.alphaState > 0) {
-            this.posHead.x += 1.5; // 鱼向右游动
-            this.posHead.y += sin(frameCount * 0.05) * 0.5; // 上下摆动
+            // 利用柏林噪声(Perlin Noise)制造自然随性的游动转向
+            let angleNoise = map(noise(this.noiseOffset), 0, 1, -PI/16, PI/16);
+            this.vel.rotate(angleNoise);
+            this.noiseOffset += 0.02;
+
+            // 保持基本游动速度
+            this.vel.setMag(1.5);
+
+            // 边缘检测：让鱼在屏幕可视范围内打转
+            let margin = 100;
+            let boundaryForce = createVector(0, 0);
             
-            // 游出屏幕或透明度降至0以下时重置隐藏
-            if (this.posHead.x > width + 100 || this.opacity <= 0) {
+            // 左右边界平滑推入逻辑，支持鱼在区域内转弯反弹
+            if (this.posHead.x < margin) boundaryForce.x = map(this.posHead.x, margin, -50, 0, 0.5);
+            if (this.posHead.x > width - margin) boundaryForce.x = map(this.posHead.x, width - margin, width + 50, 0, -0.5);
+            if (this.posHead.y < margin) boundaryForce.y = map(this.posHead.y, margin, 0, 0, 0.5);
+            if (this.posHead.y > height - margin) boundaryForce.y = map(this.posHead.y, height - margin, height, 0, -0.5);
+
+            this.vel.add(boundaryForce);
+            this.vel.limit(2.5); // 最高限速
+
+            this.posHead.add(this.vel);
+
+            // 平滑调整鱼头的朝向 (鱼身图片向右为0度)
+            let targetAngle = this.vel.heading();
+            let diff = targetAngle - this.angle;
+            while (diff < -PI) diff += TWO_PI;
+            while (diff > PI) diff -= TWO_PI;
+            this.angle += diff * 0.1;
+
+            // 生命周期消耗，到期后自动淡出 (消散状态由外部控制，不在此处消耗生命)
+            if (appState !== 3) {
+                this.lifeTime--;
+                if (this.lifeTime <= 0) {
+                    this.opacity -= 2;
+                }
+            }
+
+            // 透明度降至0以下，或意外脱离屏幕太远时，重置隐藏状态
+            if (this.opacity <= 0 || this.posHead.x < -250 || this.posHead.x > width + 250) {
                 this.alphaState = 0; 
             }
         }
@@ -816,11 +899,22 @@ class ImageFish {
             // 应用整体透明度
             drawingContext.globalAlpha = max(0, this.opacity) / 255;
             translate(this.posHead.x, this.posHead.y);
+            rotate(this.angle); // 鱼转向移动方向
             
-            // 设置渐变色：从尾部（透明浅蓝）到头部（深水蓝）
             let gradient = drawingContext.createLinearGradient(-25, 0, 15, 0);
-            gradient.addColorStop(0, 'rgba(251, 128, 97, 0.2)'); 
-            gradient.addColorStop(1, 'rgba(231, 45, 125, 0.9)');  
+            
+            // 根据初始化的色彩类型分配不同的渐变色彩
+            if (this.colorType === 'gold') {
+                gradient.addColorStop(0, 'rgba(255, 240, 180, 0.2)'); 
+                gradient.addColorStop(1, 'rgba(255, 180, 50, 0.9)'); 
+            } else if (this.colorType === 'cyan') {
+                gradient.addColorStop(0, 'rgba(180, 255, 240, 0.2)'); 
+                gradient.addColorStop(1, 'rgba(40, 200, 220, 0.9)'); 
+            } else {
+                gradient.addColorStop(0, 'rgba(251, 128, 97, 0.2)'); 
+                gradient.addColorStop(1, 'rgba(231, 45, 125, 0.9)');  
+            }
+            
             drawingContext.fillStyle = gradient;
             noStroke();
             
@@ -830,7 +924,8 @@ class ImageFish {
             // 绘制可灵活摆动的鱼尾
             push();
             translate(-13, 0); // 坐标原点移至尾部连接处
-            rotate(sin(frameCount * 0.25) * 0.45); // 利用 sin 函数制造周期性摆动
+            // 摆动速度根据游动速度变化
+            rotate(sin(frameCount * 0.3) * 0.45); 
             triangle(0, 0, -12, -8, -12, 8); 
             pop();
             
