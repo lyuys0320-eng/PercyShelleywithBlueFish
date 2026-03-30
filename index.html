@@ -250,7 +250,7 @@ async function fetchServerlessPoem(prompt, retries = 2) {
     try {
       // 增加 AbortController 来实现请求超时熔断
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); // 设置 6 秒超时
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 设置 15 秒超时
 
       const response = await fetch(url, { 
           method: 'POST', 
