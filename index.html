@@ -243,7 +243,7 @@ const FALLBACK_POEMS = [
 ];
 
 async function fetchServerlessPoem(prompt, retries = 2) { 
-  const url = `/netlify/functions/poem`;
+  const url = `/.netlify/functions/poem`;
 
   isFetching = true;
   for (let i = 0; i < retries; i++) {
